@@ -48,7 +48,14 @@ wdi_2022 <- wdi |>
 
 ## Faceting: small multiples (≈ 30 min, Exercise 6.1 included)
 
-A facet splits one chart into **panels**, one per value of a categorical variable. Every panel uses the same axes, so the eye compares shapes at once. It is often better than 7 overlapping colours.
+**After this section you can split any chart into comparable panels, and tell when free scales mislead.**
+
+A **facet** splits one chart into **panels**, one per value of a categorical variable. Every panel uses the same axes, so the eye compares shapes at once. It is often better than 7 overlapping colours.
+
+::: {.callout-note}
+## In plain words
+Think of a **comic strip**: the same drawing frame repeated, one panel per character. Because the frame never changes, you can see at a glance what differs between panels.
+:::
 
 ### `facet_wrap()`: one variable, panels wrapped in a grid
 
@@ -68,6 +75,13 @@ ggplot(wdi_2022, aes(x = gdp_pc_ppp, y = life_exp)) +
     caption = "Source: World Bank, World Development Indicators (WDI), 2022. One point = one country."
   )
 ```
+
+::: {.callout-note}
+## How to read this chart
+- Each panel is one World Bank region; each point is one country.
+- Compare the **slope** of the cloud between panels: the upward trend appears everywhere.
+- Compare the **position** of the clouds: panels sit at different heights, because the axes are shared (fixed).
+:::
 
 Notes:
 
@@ -98,6 +112,11 @@ ggplot(trend_region, aes(x = year, y = life_exp)) +
     caption = "Source: World Bank, World Development Indicators (WDI), 2000-2023. Unweighted mean of countries in each region."
   )
 ```
+
+::: {.callout-important}
+## Key idea
+**Small multiples** replace one cluttered chart with many simple ones that share the same axes. Same axes means the eye can compare.
+:::
 
 ### `facet_grid()`: two variables, rows × columns
 
@@ -150,8 +169,29 @@ trend_region |>
   )
 ```
 
+For comparison, here are the same four regions with the default **fixed** scale.
+
+```{r}
+#| fig-width: 10
+#| fig-height: 5
+trend_region |>
+  filter(region %in% c("Sub-Saharan Africa", "North America",
+                       "South Asia", "Europe & Central Asia")) |>
+  ggplot(aes(x = year, y = life_exp)) +
+  geom_line(linewidth = 1, colour = pal_cours[["principal"]]) +
+  facet_wrap(~ region, nrow = 1) +
+  labs(
+    title = "Fixed y-axes: the regions differ in level, and Africa and South Asia gain most",
+    x = NULL, y = "Life expectancy at birth (years)",
+    caption = "Source: World Bank, World Development Indicators (WDI), 2000-2023. Unweighted mean of countries."
+  )
+```
+
+Same data, two stories: the free-scale version hides the **gaps in level** that the fixed version shows.
+
 ::: {.callout-warning}
-Free scales make every panel fill its box, so a small change looks as large as a big one. Use them **only** to compare *shapes* (timing, turning points), never levels or magnitudes. If readers must compare levels, keep the scales fixed (the default). If you do free the axes, say so in the subtitle.
+## Common mistake
+Free scales make every panel fill its box, so a small change looks as large as a big one. Use them **only** to compare *shapes* (timing, turning points), never levels or magnitudes. If readers must compare levels, keep the scales fixed (the default). If you do free the axes, say so in the subtitle. **How to spot it:** panels with different tick values on the y-axis.
 :::
 
 ::: {.callout-tip}
@@ -192,7 +232,46 @@ ggplot(elec, aes(x = year, y = elec_access)) +
 
 ### How `theme()` works
 
-A theme is a list of settings for every **non-data** element: text, axes, grid, legend, background. You change an element with `theme(element = element_*(...))`, where the constructor depends on the type of element:
+**After this section you can restyle any chart, and set one look for a whole project.**
+
+### Before and after: what the techniques buy
+
+Left, a chart with ggplot's defaults. Right, the same data after this session's techniques: a message title, units, one highlighted group, a source. The data and the geometry are identical; only the **communication** changed.
+
+```{r}
+#| layout-ncol: 2
+#| fig-width: 6
+#| fig-height: 5
+# Before: defaults only
+ggplot(wdi_2022, aes(x = gdp_pc_ppp, y = life_exp)) +
+  geom_point() +
+  theme_gray()
+
+# After: message title, units, emphasis, source
+wdi_2022 |>
+  mutate(focus = region == "Sub-Saharan Africa") |>
+  ggplot(aes(x = gdp_pc_ppp, y = life_exp, colour = focus)) +
+  geom_point(alpha = 0.7) +
+  scale_colour_manual(values = c("FALSE" = pal_cours[["gris"]],
+                                 "TRUE"  = pal_cours[["accent"]]),
+                      guide = "none") +
+  scale_x_log10(labels = label_dollar(scale_cut = cut_short_scale())) +
+  labs(
+    title = str_wrap("Sub-Saharan Africa (red) sits at the low end of income and health", 45),
+    x = "GDP per capita, PPP (2021 int. $, log scale)",
+    y = "Life expectancy at birth (years)",
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022.", 55)
+  )
+```
+
+::: {.callout-important}
+## Key idea
+A theme controls how a chart **looks**; the title, units and emphasis control what it **says**. A good figure needs both, and neither changes the data.
+:::
+
+### How `theme()` works
+
+A **theme** is a list of settings for every **non-data** element: text, axes, grid, legend, background. You change an element with `theme(element = element_*(...))`, where the constructor depends on the type of element:
 
 | Constructor | Used for | Example |
 |---|---|---|
@@ -205,6 +284,11 @@ Settings are **inherited**: `axis.title` controls `axis.title.x` and `axis.title
 
 1. A theme added **last** overrides earlier settings.
 2. A **complete theme** (`theme_minimal()`, `theme_cours()`) must come *before* your own `theme()` tweaks, otherwise it erases them.
+
+::: {.callout-warning}
+## Common mistake
+Adding `theme_minimal()` or `theme_cours()` **after** your own `theme()` tweaks: the complete theme overwrites them and your changes seem to be ignored. **Fix:** complete theme first, tweaks last.
+:::
 
 ```{r}
 #| fig-width: 8
@@ -229,7 +313,7 @@ p_base +
 
 ### Build a small custom theme (Optional — going further, ≈ 10 min)
 
-A custom theme is a **function that returns a theme**. Build it on top of `theme_cours()` and change only what you need. Do not set a `family =` for fonts unless you are sure the font exists on every machine: an unavailable font silently falls back to a default or triggers warnings. The generic families `"sans"`, `"serif"` and `"mono"` always exist.
+A **custom theme** is a **function that returns a theme**. Build it on top of `theme_cours()` and change only what you need. Do not set a `family =` for fonts unless you are sure the font exists on every machine: an unavailable font silently falls back to a default or triggers warnings. The generic families `"sans"`, `"serif"` and `"mono"` always exist.
 
 ```{r}
 #| fig-width: 8
@@ -312,6 +396,8 @@ ggplot(wdi_2022, aes(x = gdp_pc_ppp, y = life_exp, colour = region)) +
 
 ## Annotations and reference lines (≈ 15 min)
 
+**After this section you can point the reader to the finding with lines, labels and shaded zones.**
+
 A chart that carries a message **says** it. Annotations point the reader to what matters. Three tools:
 
 - `geom_vline()` / `geom_hline()`: reference lines at a given x or y;
@@ -348,15 +434,25 @@ ggplot(life_world, aes(x = year, y = life_exp)) +
   )
 ```
 
+::: {.callout-note}
+## How to read this chart
+- The blue line is the world's population-weighted life expectancy, year by year.
+- The shaded band and dashed line mark the pandemic years (2020-21).
+- Look at the **size of the dip** against the long upward trend before it: the pandemic reversed roughly a few years of progress, and the recovery is visible by 2023.
+:::
+
 Between 2019 and 2021 the weighted mean moved from `r round(le_2019_2021[1], 1)` to `r round(le_2019_2021[2], 1)` years; in 2023 it stood at `r round(le_2019_2021[3], 1)` years.
 
-::: {.callout-note}
-**Honest axes.** A line chart does not need to start at zero, but be aware that the y-axis range changes the visual impression of the fall. Here the axis follows the data; state the numbers (as in the sentence above) so that readers are not misled by the slope alone.
+::: {.callout-warning}
+## Common mistake
+**Dishonest axes.** A line chart does not need to start at zero, but be aware that the y-axis range changes the visual impression of the fall. Here the axis follows the data; state the numbers (as in the sentence above) so that readers are not misled by the slope alone.
 :::
 
 ## Combining plots with patchwork (≈ 25 min)
 
-`patchwork` assembles several ggplot objects with arithmetic operators:
+**After this section you can combine several charts into one labelled figure.**
+
+**patchwork** assembles several ggplot objects with arithmetic operators:
 
 | Operator | Meaning |
 |---|---|
@@ -396,11 +492,24 @@ p_hist <- ggplot(wdi_2022, aes(x = life_exp)) +
   theme(legend.position = "bottom", legend.text = element_text(size = 9))
 ```
 
+::: {.callout-note}
+## How to read this chart
+- **A** (scatter): the income-health relationship, one point per country.
+- **B** (boxplots): the same outcome by region, ordered by median; the boxes show how much regions differ and overlap.
+- **C** (histogram): the overall distribution of life expectancy across countries.
+- Together: the shape of the relationship (A), where regions sit (B), and the overall spread (C).
+:::
+
 - `plot_layout(guides = "collect")` merges identical legends into one;
 - `plot_annotation(tag_levels = "A")` labels the panels A, B, C (to refer to them in the text);
 - `&` applies a setting to **all** sub-plots (`+` would only touch the last one).
 
 In a report you write "Figure 1B shows..." and the reader finds it immediately.
+
+::: {.callout-important}
+## Key idea
+One figure, **one message**. Patchwork combines panels that support the same message; it is not a way to fit unrelated charts on one page.
+:::
 
 ::: {.callout-tip}
 ## Exercise 6.3
@@ -445,6 +554,8 @@ pB <- wdi |>
 
 ## Exporting figures with `ggsave()` (≈ 5 min)
 
+**After this section you can export a figure from code at the exact size you need.**
+
 Never export by screenshot. `ggsave()` writes a file at an exact size and resolution, from code, so the figure is reproducible.
 
 ```{r}
@@ -470,11 +581,18 @@ Rules of thumb for sizes:
 | Word / PDF note (portrait page) | 14–16 cm wide, 9–11 cm high | PNG 300 dpi or PDF | `base_size` 11–12 |
 | Slides (16:9) | 24–25 cm wide, 13–14 cm high | PNG 300 dpi | `base_size` 16–20 |
 
+::: {.callout-warning}
+## Common mistake
+Exporting at 25 cm and shrinking to 15 cm in Word: the text becomes unreadable. **Rule: text at least 12 pt at final size.** Export at the final size, then check the text.
+:::
+
 Sizing is a design decision: if you export a chart at 25 cm and shrink it to 15 cm in Word, the text becomes unreadable. Export at the **final printed size**, with `base_size` set to match (`theme_cours(base_size = 11)`).
 
 These chunks use `eval: false`: running them on this page would write files. Run them in your own project; the files appear in `output/`.
 
 ## Interactivity with plotly (≈ 15 min, Exercise 6.4 included)
+
+**After this section you can make a chart interactive for the web, and know when not to.**
 
 `ggplotly()` converts a ggplot into an interactive HTML widget: hover, zoom, click on the legend to hide a group. It works in HTML pages and in the RStudio Viewer, not in Word or PDF.
 
@@ -547,7 +665,13 @@ bscols(
 `SharedData$new()` wraps the data; `key` identifies each country across charts; `filter_select()` creates the drop-down; `bscols()` lays out the pieces in a 12-column grid. (Use the box-select tool in the plotly toolbar to select several countries: they stay highlighted in the other chart.)
 
 ::: {.callout-warning}
-Interactive charts are a **complement**, not a replacement. A policy note is read on paper or in Word: it needs a good static figure. Use interactivity for exploration and for web dashboards.
+## Common mistake
+**Interactive does not mean better.** Interactive charts are a **complement**, not a replacement. A policy note is read on paper or in Word: it needs a good static figure. Use interactivity for exploration and for web dashboards.
+:::
+
+::: {.callout-note}
+## Why it matters for development economics
+Policy audiences read paper notes, but analysts exploring 200 countries need to ask "which dot is that?". Use hover to **explore**, then publish a static figure that makes the point.
 :::
 
 ::: {.callout-tip}
@@ -578,9 +702,20 @@ ggplotly(p_facet_int, tooltip = "label")
 
 ## Shiny: an app is a function of its inputs (Optional — going further, ≈ 15 min)
 
+**After this section you can read a Shiny app and say what each part does.**
+
 **Shiny** builds web applications in R. An app has two parts: a `ui` (what the user sees: menus, sliders, plot area) and a `server` (R code that recomputes outputs when an input changes).
 
+```{mermaid}
+flowchart LR
+  A[User moves a control] --> B[input$year, input$region]
+  B --> C[server recomputes]
+  C --> D[output$scatter redraws]
+  D --> A
+```
+
 ::: {.callout-important}
+## Key idea
 **A Shiny app needs a running R process behind it.** It cannot run on this page, which is static HTML. The chunk below is displayed but **not executed**: copy it to try it on your computer.
 :::
 
@@ -657,15 +792,45 @@ Shiny apps are deployed on a server (shinyapps.io, Posit Connect) to be shared: 
 
 ### Why a literate document?
 
+**After this section you can write a report that regenerates its own numbers and figures.**
+
 Without it, the workflow is: run a script, copy a figure into Word, retype the numbers. When the data or the code changes, you redo everything by hand, and a stale number slips through. In a **literate document**, text, code, figures and numbers live in the same file: you render it, and everything is regenerated from the data. The report is its own audit trail.
 
-Quarto (`.qmd`) combines three things:
+**Quarto** (`.qmd`) combines three things:
 
 1. a **YAML header** (title, author, output format);
 2. **text** in Markdown;
 3. **code chunks** and **inline code**, run at render time.
 
 This course website is itself built with Quarto.
+
+```{mermaid}
+flowchart LR
+  A[".qmd file"] --> B["knitr runs the R code"]
+  B --> C["Markdown with results"]
+  C --> D["pandoc converts"]
+  D --> E["HTML, PDF or Word"]
+```
+
+::: {.callout-important}
+## Key idea
+Rendering **re-runs all the code**. Numbers in the text come from the data, so the report cannot disagree with the analysis.
+:::
+
+### Anatomy of a `.qmd` file
+
+::: {.definition}
+**YAML header**: the block between two `---` lines at the top. It holds the title, author, date and output formats.
+:::
+
+::: {.definition}
+**Text**: ordinary Markdown (`##` headings, **bold**, lists). Inline code (see below) inserts a computed value.
+:::
+
+::: {.definition}
+**Code chunk**: R code between ```` ```{r} ```` fences, with options such as `#| fig-cap:`. Output (tables, figures) appears right below.
+:::
+
 
 ### A minimal report
 
@@ -724,6 +889,11 @@ Points to notice:
 - In RStudio: click **Render**. The output file appears next to the `.qmd`.
 - From the Console or terminal: `quarto render report.qmd` (all formats), or `quarto render report.qmd --to docx`.
 
+::: {.callout-warning}
+## Common mistake
+Rendering from the wrong folder, so `here()` or relative paths fail. **Fix:** keep `report.qmd` inside the project (next to `data/`) and render from there.
+:::
+
 ::: {.callout-tip}
 ## Exercise 6.5
 
@@ -732,6 +902,8 @@ Create `report.qmd` from the template above. Render it to HTML and to Word. Then
 
 ## Capstone: the figure for the "note au ministre" (≈ 45 min)
 
+**After this section you can produce a policy-ready figure and check it against a six-point list.**
+
 The French dataviz workshop ([Atelier dataviz](../slides/atelier-dataviz.qmd)) prepares a **policy brief to a minister** ("note au ministre"). Your task here is to produce its key figure.
 
 ::: {.callout-tip}
@@ -739,12 +911,12 @@ The French dataviz workshop ([Atelier dataviz](../slides/atelier-dataviz.qmd)) p
 
 Choose **one indicator** and **one comparison** that matter for a development topic of your choice (countries, regions or income groups; one year, or change over time). Draw **one** figure that passes this checklist (from the workshop):
 
-1. **Message title**: the title states the finding, not the topic ("Electricity access doubled in ...", not "Electricity access").
-2. **One message**: one indicator, one comparison, nothing else.
-3. **Units** on the axes (%, years, US$ and their base year); readable numbers (no `1e+09`).
-4. **Source** in the caption, with the year.
-5. **Readable**: text at least 12 pt at final size, no overlapping labels, colour used for emphasis (e.g. `pal_cours[["accent"]]` for the focus, grey for the rest), colour-blind safe.
-6. **Honest**: sensible axis, no truncated bars, sample and limits stated (missing countries, unweighted mean, correlation is not causation).
+- [ ] **Message title**: the title states the finding, not the topic ("Electricity access doubled in ...", not "Electricity access").
+- [ ] **One message**: one indicator, one comparison, nothing else.
+- [ ] **Units** on the axes (%, years, US$ and their base year); readable numbers (no `1e+09`).
+- [ ] **Source** in the caption, with the year.
+- [ ] **Readable**: text at least 12 pt at final size, no overlapping labels, colour used for emphasis (e.g. `pal_cours[["accent"]]` for the focus, grey for the rest), colour-blind safe.
+- [ ] **Honest**: sensible axis, no truncated bars, sample and limits stated (missing countries, unweighted mean, correlation is not causation).
 
 Save it with `ggsave()` at a size suited to a Word note (16 × 10 cm, 300 dpi). Write two sentences below it: what the reader should retain, and one limit.
 :::
@@ -793,6 +965,13 @@ fig_note <- ggplot(lowest12, aes(y = country)) +
 fig_note
 ```
 
+::: {.callout-note}
+## How to read this chart
+- Each row is a country; the **grey dot** is 2000 and the **red dot** is 2022.
+- The segment length is the **gain in points**: longer means faster progress.
+- Countries are ordered by 2022 coverage, so the bottom of the chart is where access is lowest.
+:::
+
 ```{r}
 #| eval: false
 dir.create(here("output"), showWarnings = FALSE)
@@ -806,6 +985,11 @@ Checklist: message title (1); one indicator and one comparison (2); units in % (
 :::
 
 ## Conclusion
+
+::: {.callout-note}
+## Why it matters for development economics
+A finding that the minister cannot read changes nothing. The figure is the last step of the analysis, and often the only one a decision-maker sees.
+:::
 
 You started this course not knowing what a console is. You can now import and clean development data, join it correctly, describe and model it with honesty about limits, map and plot it, and wrap the whole thing in a report that regenerates from the code. The habits matter more than the functions: code in scripts, relative paths, one theme, numbers computed not typed, and a title that states the finding.
 

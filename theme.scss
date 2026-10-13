@@ -50,3 +50,10 @@ thead th { background: #f0f5fa; }
 .grid-cards .card-tile .tag { font-size: .8em; color: $primary; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .grid-cards .card-tile h3 { margin: .3rem 0 .3rem; font-size: 1.05rem; }
 .grid-cards .card-tile p { font-size: .9em; color: #555; margin: 0; }
+
+// Bold = key term: a touch of colour so it stands out when skimming
+strong { color: darken($primary, 8%); }
+
+// Mermaid diagrams: centred, not wider than the text column
+.cell-output-display svg, pre.mermaid + svg, .mermaid svg { max-width: 100%; }
+.quarto-figure-center .mermaid, div.mermaid { text-align: center; }

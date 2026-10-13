@@ -4,6 +4,15 @@ subtitle: "Beginner course · Master GPE (CERDI / IHEDD)"
 description: "Six sessions to learn R: import, manipulate, describe, visualise and report development data."
 ---
 
+```{r}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(here)
+library(scales)
+source(here("R", "theme_cours.R"))
+```
+
 This course is for **Master GPE** students (development economics). There are **no prerequisites**: we start from zero, install R, write our first lines of code, and finish with a reproducible report.
 
 One development question runs through all six sessions, the **common thread** of the course:
@@ -11,6 +20,48 @@ One development question runs through all six sessions, the **common thread** of
 > **Growth, health and inequality: what does the data say about developing countries?**
 
 We start with three countries (United States, China, India), then move to all countries in the world using World Bank data. The last session ends with a figure for a "briefing note to the minister".
+
+### The course in one picture
+
+```{mermaid}
+flowchart LR
+    S1["S1 R and RStudio"] --> S2["S2 Import"]
+    S2 --> S3["S3 Manipulate"]
+    S3 --> S4["S4 Describe"]
+    S4 --> S5["S5 Visualise"]
+    S5 --> S6["S6 Report"]
+```
+
+**Import** data, **manipulate** it, **describe** it, **visualise** it, then **report** it: each session adds one link to the chain.
+
+### Where we are going
+
+By Session 5 you will produce charts like this one: **richer countries live longer, but the gain flattens out** (the "Preston curve"). Every point is a country; the area shows its population.
+
+```{r}
+#| label: hero-preston
+#| code-fold: true
+#| code-summary: "Show the code (you will write this in Session 5)"
+#| fig-width: 8
+#| fig-height: 6.5
+wdi <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
+
+wdi |>
+  filter(year == 2019, !is.na(gdp_pc_ppp), !is.na(life_exp), !is.na(region)) |>
+  ggplot(aes(x = gdp_pc_ppp, y = life_exp, size = population, colour = region)) +
+  geom_point(alpha = 0.7) +
+  scale_x_log10(labels = label_dollar(scale_cut = cut_short_scale())) +
+  scale_size_area(max_size = 12, guide = "none") +
+  scale_colour_manual(values = pal_regions, labels = label_wrap(25)) +
+  guides(colour = guide_legend(nrow = 3, override.aes = list(size = 3))) +
+  labs(
+    title = "Richer countries live longer, with diminishing returns",
+    x = "GDP per capita (constant 2021 PPP $, log scale)",
+    y = "Life expectancy at birth (years)",
+    colour = NULL,
+    caption = "Source: World Bank, World Development Indicators (WDI), 2019. Bubble area = population."
+  )
+```
 
 ```{=html}
 <div class="grid-cards">

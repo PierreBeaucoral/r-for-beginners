@@ -34,6 +34,8 @@ Session objectives
 
 ## 1. One year, one row per country (≈ 15 min)
 
+**After this section you can build a clean one-row-per-country sample and say how many countries it contains.**
+
 Sessions 1 and 2 used three countries. Statistics need many units, so we now use **all countries**. Each statistical method below assumes that one row = one unit. We therefore work on a **cross-section**: one year, one row per country.
 
 Which year? Let us check coverage of the variables we need.
@@ -76,9 +78,16 @@ n_cs
 
 Our working sample has **`r n_cs` countries**. Always report N.
 
+::: {.callout-important}
+## Key idea
+Every method in this session assumes **one row = one unit**. Here the unit is a country in 2019. Before any statistic, know what one row is and how many rows you have.
+:::
+
 ## 2. Describing one variable (≈ 40 min, including Exercise 4.1)
 
 ### Centre and spread
+
+**After this section you can summarise a variable with the right statistic and explain why GDP per capita is analysed in logs.**
 
 The main summaries of a variable $x_1, \dots, x_N$:
 
@@ -96,6 +105,10 @@ quantile(cs$life_exp, probs = c(0.1, 0.25, 0.5, 0.75, 0.9))
 IQR(cs$life_exp)
 ```
 
+::: {.definition}
+**Standard deviation**: the typical distance between a country and the average country. Small $s$: values cluster around the mean. Large $s$: they are spread out. It is in the units of the variable (years for life expectancy), so two standard deviations are only comparable for the same variable.
+:::
+
 `summary()` gives the main ones at once:
 
 ```{r}
@@ -107,6 +120,38 @@ summary(cs$gdp_pc_ppp)
 Look at GDP per capita: the mean (`r label_dollar()(round(mean(cs$gdp_pc_ppp)))`) is well above the median (`r label_dollar()(round(median(cs$gdp_pc_ppp)))`). A few rich countries pull the mean up. The distribution is **right-skewed**.
 
 *Preview: `ggplot` is taught in Session 5 and `gt` tables are only a formatting step. For now, copy the patterns and focus on the statistics.*
+
+```{r}
+#| label: fig-meanmedian
+#| code-fold: true
+#| code-summary: "Show the chart code (taught in Session 5)"
+#| fig-width: 8
+#| fig-height: 5
+#| fig-cap: "Mean and median of GDP per capita, 2019. The long right tail pulls the mean away from the median."
+mm <- tibble(
+  statistic = c("Mean", "Median"),
+  value     = c(mean(cs$gdp_pc_ppp), median(cs$gdp_pc_ppp))
+)
+
+ggplot(cs, aes(gdp_pc_ppp)) +
+  geom_histogram(bins = 30, fill = "grey80", colour = "white") +
+  geom_vline(data = mm, aes(xintercept = value, colour = statistic), linewidth = 1.1) +
+  scale_colour_manual(values = c(Mean = pal_cours[["accent"]], Median = pal_cours[["principal"]])) +
+  scale_x_continuous(labels = label_dollar()) +
+  labs(
+    title = "A few rich countries drag the mean above the median",
+    x = "GDP per capita (2021 PPP $)", y = "Number of countries", colour = NULL,
+    caption = paste0("Source: World Bank, World Development Indicators (WDI), 2019. N = ", n_cs, " countries.")
+  ) +
+  theme(legend.position = "top")
+```
+
+::: {.callout-note}
+## How to read this chart
+- Each bar counts the countries in a range of GDP per capita; **most of the mass is on the left**.
+- The blue line (median) splits the countries in two equal halves. The red line (mean) sits to its right because the few very rich countries in the tail pull it up.
+- The further apart the two lines, the more skewed the variable. For a symmetric variable they would coincide.
+:::
 
 ```{r}
 #| label: fig-hist
@@ -131,7 +176,19 @@ cs |>
   )
 ```
 
+::: {.callout-note}
+## How to read this chart
+- **Left panel**: levels. Almost all countries are squeezed into the first bars and a long tail runs to the right.
+- **Right panel**: logs. The same countries are now spread out in a roughly symmetric bell shape.
+- Same data, different scale: the log does not change the ranking of countries, only how distances between them are measured.
+:::
+
 **Why logs?** A log turns *multiplicative* differences into *additive* ones: going from \$1,000 to \$2,000 is the same step as from \$20,000 to \$40,000 (+100%). Income gaps between countries are better thought of in percentages than in dollars. The log is also what makes the relationship with life expectancy close to linear (Section 4).
+
+::: {.callout-important}
+## Key idea
+When a variable is right-skewed, the mean describes the few rich countries as much as the typical one. Report the **median**, and analyse income in **logs**.
+:::
 
 ### By group
 
@@ -164,6 +221,13 @@ ggplot(cs, aes(income, life_exp)) +
     caption = paste0("Source: World Bank, World Development Indicators (WDI), 2019. N = ", n_cs, " countries.")
   )
 ```
+
+::: {.callout-note}
+## How to read this chart
+- Each box covers the middle 50% of countries of a group (25th to 75th percentile); the thick line inside is the **median**; each dot is one country.
+- Compare the **heights** of the boxes: they rise from low to high income, so richer groups live longer.
+- Compare the **sizes** of the boxes: the box shrinks for richer groups, so life expectancy varies much less among high-income countries.
+:::
 
 ### A tidy summary table
 
@@ -226,13 +290,19 @@ In the low-income group the median (`r round(median(low$elec_access), 1)`%) is b
 
 ## 3. Correlation (≈ 30 min, including Exercise 4.2)
 
-The correlation coefficient measures the strength of the **linear** association between two variables:
+**After this section you can compute a correlation, test it, and explain what it does and does not tell you.**
+
+The **correlation coefficient** measures the strength of the **linear** association between two variables:
 
 $$
 r_{XY} = \frac{\operatorname{cov}(X, Y)}{\sigma_X \, \sigma_Y}, \qquad -1 \le r_{XY} \le 1 .
 $$
 
 It is the covariance rescaled by the two standard deviations, so it does not depend on units. $r = 1$: perfect upward line; $r = -1$: perfect downward line; $r = 0$: no *linear* association.
+
+::: {.definition}
+**Correlation ($r$)**: a number between -1 and 1 that says how closely two variables move along a straight line, and in which direction. Rule of thumb: |r| below 0.3 is weak, above 0.7 is strong. It says nothing about which variable influences the other.
+:::
 
 ```{r}
 #| label: fig-sim
@@ -268,6 +338,13 @@ ggplot(sim, aes(x, y)) +
 
 The last panel is the key lesson: $Y = X^2$ is a deterministic relationship, yet $r \approx 0$. **Always plot before you correlate.**
 
+::: {.callout-note}
+## How to read this chart
+- Each panel is a cloud of 200 points; the tighter the cloud around a line, the closer |r| is to 1.
+- Panel 2: a shapeless cloud, r near 0. Panel 4: a perfect U-shape, yet r near 0, because the line it would need is not straight.
+- A number like r hides the shape of the data. The plot shows it.
+:::
+
 Now the real data: income and life expectancy.
 
 ```{r}
@@ -286,6 +363,15 @@ ct
 ```
 
 `cor.test()` tests $H_0: \rho = 0$. Here $r = `r round(ct$estimate, 2)`$, with a 95% confidence interval of [`r round(ct$conf.int[1], 2)`, `r round(ct$conf.int[2], 2)`] and N = `r ct$parameter + 2`. The p-value is below $10^{-15}$: we reject zero correlation. But a tiny p-value does not say the correlation is *causal* or *important*; it says it is unlikely to be pure sampling noise.
+
+::: {.definition}
+**p-value**: if there were truly no relationship in the population, how often would we see a correlation (or gap, or coefficient) at least this large just by chance? A small p-value means "hard to blame on chance". It does not say the effect is large, important or causal.
+:::
+
+::: {.callout-warning}
+## Common mistake
+**Correlation is not causation.** Income and life expectancy move together (r close to `r round(r_log, 2)` in logs), but the correlation alone cannot say whether income raises health, health raises income, or something else (institutions, education, climate) drives both. Before writing "X leads to Y", ask: could Y cause X? Could a third variable cause both?
+:::
 
 ::: {.callout-tip}
 ## Exercise 4.2
@@ -315,7 +401,14 @@ cs |>
 Most countries are near 100% access; the relationship is steep only at low access, so a single straight line is a rough summary. This is a feature of the data (a ceiling), not an error.
 :::
 
+::: {.callout-important}
+## Key idea
+A correlation is a one-number summary of a **straight-line** pattern. Plot first, check the scale (logs), then correlate, and never read it as cause and effect.
+:::
+
 ## 4. Simple regression (≈ 40 min, including Exercise 4.3)
+
+**After this section you can fit a simple regression, read its slope in the units of the data, and explain what a residual is.**
 
 Correlation is symmetric and unit-free. A regression gives a **slope in the units of the data**:
 
@@ -325,11 +418,25 @@ $$
 
 OLS chooses $\alpha, \beta$ to minimise the sum of squared residuals $\sum_i \hat{\varepsilon}_i^2$.
 
+::: {.callout-note}
+## In plain words
+Imagine drawing a straight line through the cloud of countries. For each country, the **residual** is the vertical gap between the country and the line: how much its real life expectancy differs from what the line predicts. OLS picks the line that makes these gaps, squared and added up, as small as possible.
+:::
+
 **Three things to know before the code.**
 
 - **Formulas.** R writes a model as `y ~ x1 + x2`: the outcome on the left of `~`, the explanatory variables on the right, separated by `+`. The intercept is added automatically.
 - **`lm()` vs `feols()`.** `lm()` is base R and gives the same coefficients. We use `fixest::feols()` because it handles standard errors more conveniently and extends to the fixed-effects models you will meet later.
 - **`vcov = "hetero"`** asks for heteroskedasticity-robust standard errors: they stay valid when the spread of the errors differs across countries, which is the usual case. It changes the standard errors, not the coefficients. It does **not** fix omitted-variable bias or reverse causality: those are problems of the model, not of the standard errors.
+
+::: {.definition}
+**Robust standard error**: an estimate of how much a coefficient would vary from sample to sample, computed without assuming that the errors have the same spread for every country. It changes the width of the confidence interval and the p-value, never the coefficient itself.
+:::
+
+::: {.callout-warning}
+## Common mistake
+Using robust standard errors and concluding that the estimate is "causal". Robust SEs only make the *uncertainty* more honest. If income and health are both driven by institutions, the coefficient is biased whatever the standard errors are.
+:::
 
 ```{r}
 #| label: m1
@@ -352,6 +459,42 @@ The intercept (`r round(coef(m1)[["(Intercept)"]], 1)`) is the predicted life ex
 **$R^2$** is the share of the variance of life expectancy "explained" by the line: here `r round(r2(m1, "r2"), 2)`, which is also $r^2$ from Section 3. Note the quotation marks: *explained* means statistically accounted for, not caused.
 
 ```{r}
+#| label: fig-resid
+#| code-fold: true
+#| code-summary: "Show the chart code (taught in Session 5)"
+#| fig-width: 8
+#| fig-height: 5
+#| fig-cap: "The OLS line and the residuals of ten countries (red segments), 2019."
+cs_fit <- cs |>
+  mutate(fitted_le = fitted(m1)) |>
+  arrange(gdp_pc_ppp)
+
+# ten countries spread along the income distribution
+shown <- cs_fit |> slice(round(seq(5, nrow(cs_fit) - 4, length.out = 10)))
+
+ggplot(cs_fit, aes(gdp_pc_ppp, life_exp)) +
+  geom_point(colour = "grey70", alpha = 0.7) +
+  geom_line(aes(y = fitted_le), colour = pal_cours[["principal"]], linewidth = 1.1) +
+  geom_segment(data = shown, aes(xend = gdp_pc_ppp, yend = fitted_le),
+               colour = pal_cours[["accent"]], linewidth = 0.9) +
+  geom_point(data = shown, colour = pal_cours[["accent"]], size = 2.5) +
+  scale_x_log10(labels = label_dollar()) +
+  labs(
+    title = "A residual is the gap between a country and the line",
+    x = "GDP per capita (2021 PPP $, log scale)",
+    y = "Life expectancy at birth (years)",
+    caption = paste0("Source: World Bank, World Development Indicators (WDI), 2019. N = ", n_cs, " countries.")
+  )
+```
+
+::: {.callout-note}
+## How to read this chart
+- The **blue line** is the prediction: for a given GDP per capita, the life expectancy the model expects.
+- Each **red segment** is one residual: positive above the line (the country lives longer than predicted), negative below it.
+- OLS chooses the line that minimises the sum of the *squared* lengths of all the gaps, not only the red ones.
+:::
+
+```{r}
 #| label: fig-reg
 #| fig-width: 8
 #| fig-height: 5.5
@@ -371,6 +514,23 @@ ggplot(cs, aes(gdp_pc_ppp, life_exp)) +
 
 With a log x-axis, the fitted relationship is a straight line, which is exactly the log-level model.
 
+::: {.callout-note}
+## How to read this chart
+- Each dot is a country; the line is the OLS fit and the shaded band its 95% confidence interval.
+- The **slope** of the line is $\hat\beta$: the gain in years per unit of log GDP.
+- Dots far from the line are countries much healthier or sicker than their income predicts. The band shows uncertainty about the *line*, not about each country.
+:::
+
+::: {.callout-note}
+## Why it matters for development economics
+The income-health gradient (the "Preston curve") is a starting point for questions about aid and growth: does raising incomes buy longer lives? This regression cannot answer that, but it shows the size of the gap that any explanation has to account for.
+:::
+
+::: {.callout-important}
+## Key idea
+In a log-level regression, the slope $\hat\beta$ is read **per 1% (divide by 100)** or **per doubling (multiply by 0.69)** of income. It is a difference between countries, not what would happen to one country that grows.
+:::
+
 ::: {.callout-tip}
 ## Exercise 4.3
 Regress `life_exp` on `elec_access` in the 2019 cross-section (`feols`, robust SEs). Interpret the slope in one sentence (units!), give $R^2$ and N, and say what you would worry about before reading it as an effect of electrification.
@@ -388,6 +548,8 @@ The slope is the difference in life expectancy (years) associated with one more 
 :::
 
 ## 5. Multiple regression (≈ 40 min, including Exercise 4.4)
+
+**After this section you can read a multi-model regression table, and explain why changing the sample and changing the specification must not be confused.**
 
 Is the income-health relationship just a proxy for something else? Add controls:
 
@@ -444,6 +606,8 @@ modelsummary(
 
 ```{r}
 #| label: coefs-numbers
+gdp3    <- coef(m3)[["log_gdp_pc"]]
+se_gdp3 <- se(m3)[["log_gdp_pc"]]
 b <- round(c(coef(m1)[["log_gdp_pc"]], coef(m2)[["log_gdp_pc"]],
              coef(m3)[["log_gdp_pc"]], coef(m4)[["log_gdp_pc"]]), 2)
 bg  <- coef(m3)[["gini"]]
@@ -453,11 +617,52 @@ p3  <- pvalue(m3)[["gini"]]
 p4  <- pvalue(m4)[["gini"]]
 ```
 
-How to read it (the table above has all the numbers):
+::: {.callout-note}
+## How to read this table
+Read one row, one column at a time. Take the row "Log GDP per capita" in column (3):
+
+- **Coefficient** (`r round(gdp3, 2)`): the difference in life expectancy, in years, associated with one more unit of log GDP per capita, holding the Gini fixed.
+- **Standard error** (in parentheses, `r round(se_gdp3, 2)`): the uncertainty on the coefficient. A rough rule: the coefficient is "distinguishable from zero" if it is more than about 2 standard errors away (here `r round(gdp3 / se_gdp3, 1)`).
+- **Stars**: a shortcut for the p-value (* p < 0.1, ** p < 0.05, *** p < 0.01). More stars mean "harder to blame on chance", not "bigger effect".
+- **R²** (bottom): the share of the variance of life expectancy accounted for by the model in that column.
+- **Num.Obs.** (N): the number of countries used. It changes between columns (1) and (2): compare the sample before comparing the estimates.
+:::
+
+How to read the four columns together (the table above has all the numbers):
 
 - Columns (1) and (2) give the same kind of estimate on two samples: the GDP coefficient is `r b[1]` with all countries and `r b[2]` with the countries that have a Gini (N = `r nobs(m1)` vs `r nobs(m2)`). Sample composition matters.
 - Column (3): adding the Gini barely moves the GDP coefficient (`r b[2]` to `r b[3]`). The Gini coefficient is `r round(bg, 3)` (robust SE `r round(se3, 3)`, p = `r round(p3, 2)`): a 10-point higher Gini goes with about `r round(10 * bg, 2)` years of life expectancy, holding income constant. That is small, and statistically indistinguishable from zero.
 - Column (4): with region dummies the GDP coefficient is `r b[4]` and the Gini coefficient `r round(bg4, 3)` (p = `r round(p4, 2)`), again small and not significant. The income gradient survives the controls; it is not simply a regional effect.
+
+```{r}
+#| label: fig-coefplot
+#| code-fold: true
+#| code-summary: "Show the chart code (taught in Session 5)"
+#| fig-width: 8
+#| fig-height: 5
+#| fig-cap: "Coefficients of the four models with 95% confidence intervals (robust standard errors). Region dummies and intercept not shown."
+modelplot(
+  list("(1) All" = m1, "(2) With Gini" = m2, "(3) + Gini" = m3, "(4) + Region" = m4),
+  coef_rename = nice_names,
+  coef_omit = "Intercept|region"
+) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey40") +
+  scale_colour_manual(values = unname(c(pal_cours[["gris"]], pal_cours[["principal"]],
+                                        pal_regions[["Sub-Saharan Africa"]], pal_cours[["accent"]]))) +
+  labs(
+    title = "The income gradient is stable; the Gini coefficient is near zero",
+    x = "Coefficient (years of life expectancy per unit), 95% CI", y = NULL, colour = NULL,
+    caption = "Source: World Bank, World Development Indicators (WDI), 2019. Columns (2)-(4): countries with a Gini index."
+  ) +
+  theme(legend.position = "bottom")
+```
+
+::: {.callout-note}
+## How to read this chart
+- Each dot is a coefficient; the horizontal bar is its 95% confidence interval. The dashed line is zero.
+- A bar that **does not touch zero** (log GDP) is distinguishable from no relationship. A bar that **crosses zero** (Gini) is not.
+- The two variables are on different scales (log points vs Gini points), so compare each bar with zero, not one variable with the other.
+:::
 
 Each coefficient is "the difference associated with a one-unit change, **holding the other included variables fixed**". These are **associations, not causal effects**:
 
@@ -465,6 +670,11 @@ Each coefficient is "the difference associated with a one-unit change, **holding
 - **Reverse causality:** healthier populations are more productive, so health may raise income as well as the opposite.
 - **Measurement and selection:** the Gini is available for a non-random subset of countries.
 - **Not independent draws:** neighbouring countries share climate, history and institutions, so observations are correlated within regions. And our 2019 countries are close to the whole population of countries, not a random sample of it, so read p-values as a rough guide to noise, not as exact probabilities.
+
+::: {.callout-important}
+## Key idea
+"Holding the other variables fixed" is a statement about the **model**, not about the world. A coefficient moves only when you add a variable that is correlated with both the outcome and the variable of interest, and the sample must stay the same for the comparison to be fair.
+:::
 
 ::: {.callout-tip}
 ## Exercise 4.4
@@ -483,6 +693,8 @@ Electricity access is itself strongly correlated with income, and also with life
 
 ## 6. Why not pool years? (≈ 10 min)
 
+**After this section you can explain why a panel of a few countries is not a large sample.**
+
 ::: {.callout-warning}
 ## Pooling years of a few countries does not give independent observations
 
@@ -495,6 +707,8 @@ A failed join can also silently drop a country (the US in the Session 3 example)
 :::
 
 ## 7. Optional / homework: hypothesis testing and a model table (≈ 30 min)
+
+**After this section you can test a difference between two groups and say what a p-value does and does not mean.**
 
 This section is not needed for the next sessions. Do it at home or if you finish early.
 

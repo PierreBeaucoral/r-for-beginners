@@ -36,9 +36,23 @@ Each row is a country-year: `r n_distinct(wdi$iso3c)` countries, `r n_distinct(w
 
 ## The pipe and the main verbs (≈ 35 min)
 
+**After this section you can write a chain of `dplyr` verbs that filters, selects, sorts and creates variables.**
+
 ### The pipe `|>`
 
 The pipe takes what is on its left and passes it as the **first argument** of the function on its right. Read it as "and then".
+
+```{mermaid}
+flowchart LR
+  A[wdi] --> B["filter(year == 2020)"]
+  B --> C["select(country, life_exp)"]
+  C --> D["arrange(desc(life_exp))"]
+  D --> E[Result table]
+```
+
+::: {.definition}
+**Pipe (`|>`)**: an operator that sends the result on its left into the first argument of the function on its right. `x |> f(y)` is the same as `f(x, y)`.
+:::
 
 ```{r}
 # Without the pipe: read from the inside out
@@ -51,13 +65,18 @@ wdi |>
   head(3)
 ```
 
+::: {.callout-important}
+## Key idea
+Every `dplyr` verb takes a table and returns a table. That is why they chain: **one verb per line, read top to bottom as "and then"**.
+:::
+
 ::: {.callout-note}
 Older code online uses the `%>%` pipe from the `magrittr` package. It does almost the same thing. Both work; in this course we use the native `|>`.
 :::
 
 ### `filter()`: keep rows
 
-`filter()` keeps the rows where the condition is `TRUE`. Several conditions separated by a comma mean "and"; use `|` for "or" and `%in%` for "one of".
+`filter()` keeps the **rows** where the condition is `TRUE`. Several conditions separated by a comma mean "and"; use `|` for "or" and `%in%` for "one of".
 
 ```{r}
 wdi |>
@@ -69,9 +88,14 @@ wdi |>
   select(country, life_exp)
 ```
 
-Comparison operators: `==` (equal; never a single `=`), `!=`, `<`, `<=`, `>`, `>=`.
+Comparison operators: `==` (equal; **never a single `=`**), `!=`, `<`, `<=`, `>`, `>=`.
 
 ### `select()`: keep columns
+
+::: {.callout-warning}
+## Common mistake
+Confusing the two: `filter()` works on **rows** (conditions on values), `select()` works on **columns** (names). If R says "object not found" inside `filter()`, check that you did not drop the column with an earlier `select()`.
+:::
 
 ```{r}
 wdi |> select(country, year, life_exp) |> head(3)
@@ -143,13 +167,41 @@ wdi_2020 <- wdi |>
 wdi_2020 |> count(elec_level)
 ```
 
+```{r}
+#| code-fold: true
+#| code-summary: "Show the chart code (taught in Session 5)"
+#| fig-width: 8
+#| fig-height: 5
+wdi_2020 |>
+  count(elec_level) |>
+  ggplot(aes(x = n, y = fct_reorder(elec_level, n))) +
+  geom_col(fill = pal_cours[["principal"]]) +
+  labs(title = "Most countries have near-universal electricity access",
+       x = "Number of countries, 2020", y = NULL,
+       caption = "Source: World Bank, World Development Indicators (WDI), 2020.")
+```
+
+::: {.callout-note}
+## In plain words
+`case_when()` is a sorting machine: each country goes through the questions from top to bottom and **stops at the first "yes"**. That is why the order of the conditions matters.
+:::
+
 `count()` is a shortcut for "group and count the rows". We come back to it below.
 
 ## Summarising by group, and missing values (≈ 30 min)
 
+**After this section you can compute a statistic by group, and say how many observations it rests on.**
+
 ### `group_by()` + `summarise()`
 
-`summarise()` collapses many rows into one. Combined with `group_by()` it gives one row per group. `n()` counts the rows of each group.
+`summarise()` collapses many rows into one. Combined with `group_by()` it gives **one row per group**. `n()` counts the rows of each group.
+
+```{mermaid}
+flowchart LR
+  A["wdi, 2020 (one row per country)"] --> B["group_by(region)"]
+  B --> C["summarise(mean_life = mean(life_exp))"]
+  C --> D["one row per region"]
+```
 
 ```{r}
 wdi |>
@@ -162,11 +214,36 @@ wdi |>
   )
 ```
 
-Look at `median_gdp_pc`: `NA` for five of the seven regions. One missing value is enough for `median()` to return `NA`. We need to talk about missing values.
+Here is the same logic with the mean, saved so that we can plot it:
+
+```{r}
+life_by_region <- wdi |>
+  filter(year == 2020) |>
+  group_by(region) |>
+  summarise(mean_life = mean(life_exp), n_countries = n())
+
+life_by_region
+```
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the chart code (taught in Session 5)"
+#| fig-width: 8
+#| fig-height: 5
+life_by_region |>
+  ggplot(aes(x = mean_life, y = fct_reorder(region, mean_life))) +
+  geom_col(fill = pal_cours[["principal"]]) +
+  geom_text(aes(label = paste0("n = ", n_countries)), hjust = 1.1, colour = "white") +
+  labs(title = "Sub-Saharan Africa trails North America by 17 years",
+       x = "Mean life expectancy at birth, 2020 (years)", y = NULL,
+       caption = "Source: World Bank, World Development Indicators (WDI), 2020. Unweighted mean across countries.")
+```
+
+Now look at `median_gdp_pc` in the previous table: `NA` for five of the seven regions. One missing value is enough for `median()` to return `NA`. We need to talk about missing values.
 
 ### Missing values
 
-`NA` means "value unknown". It is contagious: any calculation involving an `NA` returns `NA`.
+`NA` means "value unknown". It is **contagious**: any calculation involving an `NA` returns `NA`.
 
 ```{r}
 mean(c(70, 75, NA))
@@ -202,10 +279,10 @@ wdi |>
   )
 ```
 
-The median Gini is computed on `n_with_gini` countries only, not on all of them. Now the grouped table again, this time with N:
+The median Gini is computed on **`n_with_gini` countries only**, not on all of them. Now the grouped table again, this time with N:
 
 ```{r}
-wdi |>
+gdp_n_region <- wdi |>
   filter(year == 2020) |>
   group_by(region) |>
   summarise(
@@ -215,7 +292,35 @@ wdi |>
     .groups = "drop"
   ) |>
   arrange(desc(median_gdp_pc))
+
+gdp_n_region
 ```
+
+Dropping the `NA` is not free. The chart shows how many countries each region loses:
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the chart code (taught in Session 5)"
+#| fig-width: 8
+#| fig-height: 5
+gdp_n_region |>
+  mutate(lost = n_countries - n_gdp_pc) |>
+  select(region, `Kept` = n_gdp_pc, `Lost (NA)` = lost) |>
+  pivot_longer(-region, names_to = "status", values_to = "countries") |>
+  mutate(status = factor(status, levels = c("Lost (NA)", "Kept"))) |>
+  ggplot(aes(x = countries, y = fct_reorder(region, countries, sum), fill = status)) +
+  geom_col() +
+  scale_fill_manual(values = c(Kept = pal_cours[["principal"]], `Lost (NA)` = pal_cours[["accent"]])) +
+  labs(title = "Dropping NAs removes countries unevenly across regions",
+       x = "Number of countries, 2020", y = NULL, fill = NULL,
+       caption = "Source: World Bank, World Development Indicators (WDI), 2020. GDP per capita (PPP).") +
+  theme(legend.position = "top")
+```
+
+::: {.callout-important}
+## Key idea
+`na.rm = TRUE` makes the calculation run, but **the statistic now describes a smaller, possibly different group of countries**. Print N next to every number.
+:::
 
 Two details. `.groups = "drop"` removes the grouping from the result (otherwise it stays grouped, which can surprise you later). And since dplyr 1.1, `.by` is a shorter alternative to `group_by()`, with no grouping left behind:
 
@@ -233,7 +338,13 @@ wdi |> filter(year == 2020) |> count(income, sort = TRUE)
 
 ## Factors: giving categories an order (≈ 10 min)
 
-R sorts text alphabetically, which is rarely what we want. Income groups have a natural order. A **factor** is a variable with a fixed, ordered list of categories (its `levels`).
+**After this section you can control the order in which categories appear in tables and charts.**
+
+R sorts text alphabetically, which is rarely what we want. Income groups have a natural order.
+
+::: {.definition}
+**Factor**: a variable with a fixed, ordered list of allowed categories (its `levels`). The order of the levels is the order used in tables and charts.
+:::
 
 ```{r}
 unique(wdi$income)   # check the exact labels before using them
@@ -270,19 +381,57 @@ wdi |>
 
 Without `fct_reorder()`, the bars would be in alphabetical order and the message would be harder to read.
 
+::: {.callout-warning}
+## Common mistake
+Typing a level with a slightly different spelling (`"Low Income"` instead of `"Low income"`): **R silently turns it into `NA`**. That is why we ran `unique(wdi$income)` first. After `factor()`, check with `count()` that no `NA` appeared.
+:::
+
 ## Reshaping with tidyr: wide and long (≈ 25 min)
+
+**After this section you can switch a table between wide and long format with `pivot_wider()` and `pivot_longer()`.**
 
 ### Tidy data in three rules
 
-A table is **tidy** when:
-
-1. each **variable** is a column;
-2. each **observation** is a row;
-3. each **value** is a cell.
+::: {.definition}
+**Tidy data**: a table is tidy when (1) each **variable** is a column, (2) each **observation** is a row, (3) each **value** is a cell.
+:::
 
 Our panel is tidy: one row per country-year, one column per variable (`year` is a column, not 24 columns). `ggplot2` and `dplyr` expect this *long* format.
 
 But data downloaded from the World Bank website or an Excel sheet usually come *wide*: one column per year (`2000`, `2001`, ...). It is handy to read, but a year is a value, not a variable. Before analysing such data, you reshape them.
+
+```{mermaid}
+flowchart LR
+  L["Long: one row per country-year"] -- "pivot_wider()" --> W["Wide: one column per year"]
+  W -- "pivot_longer()" --> L
+```
+
+:::: {layout-ncol=2}
+::: {}
+**Long** (3 columns)
+
+| country | year | value |
+|---------|------|-------|
+| A | 2000 | 70 |
+| A | 2010 | 73 |
+| B | 2000 | 55 |
+| B | 2010 | 60 |
+:::
+
+::: {}
+**Wide** (one column per year)
+
+| country | y2000 | y2010 |
+|---------|-------|-------|
+| A | 70 | 73 |
+| B | 55 | 60 |
+:::
+::::
+
+::: {.callout-important}
+## Key idea
+Ask: "is this column name actually a **value**?" Column names `2000`, `2010`, ... are values of the variable `year`: pivot them into rows with `pivot_longer()`.
+:::
 
 ### `pivot_wider()`: long to wide
 
@@ -302,7 +451,7 @@ life_wide <- life_long |>
 life_wide
 ```
 
-`names_from` gives the column that becomes the new column names, `values_from` the column that fills the cells.
+**`names_from`** gives the column that becomes the new column names, `values_from` the column that fills the cells.
 
 ### `pivot_longer()`: wide to long
 
@@ -321,9 +470,21 @@ life_back
 all.equal(as.data.frame(life_back), as.data.frame(life_long))
 ```
 
+::: {.callout-warning}
+## Common mistake
+After `pivot_longer()` with `names_prefix`, the new `year` column is **text**, not a number. Charts and filters on it then misbehave. Convert it with `as.integer()`, as above.
+:::
+
 ## Joins: combining two tables (≈ 35 min)
 
-Real projects use several sources: GDP from the World Bank, inequality from WID, trade from the OECD. A **join** adds to table `x` the columns of table `y`, matching rows on a **key** (one or several columns).
+**After this section you can combine two tables safely and detect rows that failed to match.**
+
+Real projects use several sources: GDP from the World Bank, inequality from WID, trade from the OECD.
+
+::: {.definition}
+**Join**: adds to table `x` the columns of table `y`, matching rows on a **key**.
+**Key**: the column (or columns) that identify the same unit in both tables, here the country code and the year.
+:::
 
 ### A tiny example
 
@@ -342,6 +503,24 @@ left_join(data1, data2, by = "country")    # all rows of data1
 inner_join(data1, data2, by = "country")   # only rows found in both
 full_join(data1, data2, by = "country")    # all rows of both
 anti_join(data1, data2, by = "country")    # rows of data1 with NO match in data2
+```
+
+```{mermaid}
+flowchart LR
+  subgraph X["x: US, CN, IN"]
+    x1[US]
+    x2[CN]
+    x3[IN]
+  end
+  subgraph Y["y: US, CN, BR"]
+    y1[US]
+    y2[CN]
+    y3[BR]
+  end
+  X --> L["left_join keeps US, CN, IN"]
+  X --> I["inner_join keeps US, CN"]
+  X --> A["anti_join keeps IN"]
+  Y --> I
 ```
 
 | Join | Keeps | Rows here | Unmatched values |
@@ -381,10 +560,31 @@ naive |>
   summarise(n_rows = n(), n_gini = sum(!is.na(gini)), .by = country)
 ```
 
-No error, no warning, the right number of rows. And yet **the United States has no Gini at all**. Why? WDI writes "United States", WID writes "USA": the two strings differ, so no row matches, and `left_join()` fills with `NA`.
+No error, no warning, the right number of rows. And yet **the United States has no Gini at all**:
 
-::: {.callout-important}
-## A common mistake
+```{r}
+#| code-fold: true
+#| code-summary: "Show the chart code (taught in Session 5)"
+#| fig-width: 8
+#| fig-height: 5
+naive |>
+  summarise(n_gini = sum(!is.na(gini)), n_missing = sum(is.na(gini)), .by = country) |>
+  pivot_longer(c(n_gini, n_missing), names_to = "status", values_to = "years") |>
+  mutate(status = recode(status, n_gini = "Gini found", n_missing = "Gini missing (NA)")) |>
+  ggplot(aes(x = years, y = country, fill = status)) +
+  geom_col() +
+  scale_fill_manual(values = c(`Gini found` = pal_cours[["principal"]],
+                               `Gini missing (NA)` = pal_cours[["accent"]])) +
+  labs(title = "The join on names silently lost the United States",
+       x = "Number of years (2000-2020)", y = NULL, fill = NULL,
+       caption = "Source: World Bank WDI and World Inequality Database (WID).") +
+  theme(legend.position = "top")
+```
+
+Why? WDI writes "United States", WID writes "USA": the two strings differ, so no row matches, and `left_join()` fills with `NA`.
+
+::: {.callout-warning}
+## Common mistake
 Joining two sources by country name: the US silently loses its Gini and nobody notices, because R raises nothing. A join never complains about unmatched keys. **You** must check.
 :::
 
@@ -419,7 +619,36 @@ gdp3 |> anti_join(wid, by = c("iso3c", "year")) |> nrow()
 
 We selected only `iso3c`, `year` and `gini` from `wid`: otherwise `country` and `country_wid` would both be carried along, which is confusing.
 
+Now all three countries have a Gini, and we can finally compare inequality with income:
+
+```{r}
+#| code-fold: true
+#| code-summary: "Show the chart code (taught in Session 5)"
+#| fig-width: 8
+#| fig-height: 5
+gdp_gini |>
+  ggplot(aes(x = year, y = gini, colour = country)) +
+  geom_line(linewidth = 1) +
+  scale_colour_manual(values = c(China = pal_cours[["accent"]],
+                                 India = "#E69F00",
+                                 `United States` = pal_cours[["principal"]])) +
+  labs(title = "Inequality rose in all three countries; in China, mostly before 2010",
+       x = "Year", y = "Gini coefficient (WID, 0-1)",
+       colour = NULL,
+       caption = "Source: World Bank WDI (GDP) joined with World Inequality Database (WID, Gini) on iso3c and year.")
+```
+
+::: {.callout-note}
+## Why it matters for development economics
+Cross-country work always combines sources (growth from the World Bank, inequality from WID, trade from the OECD). A silent loss like the US here biases every comparison that follows, usually **without any visible symptom**.
+:::
+
 ### Good habits for every join
+
+::: {.callout-important}
+## Key idea
+A join never complains about unmatched keys. The safety net is a routine: **join on codes, count rows, run `anti_join()`**.
+:::
 
 1. **Join on codes** (`iso3c`, not names), and on all the keys that identify a row: country *and* year here.
 2. **Count rows before and after** with `nrow()`. After a `left_join()`, the number of rows should equal that of the left table.

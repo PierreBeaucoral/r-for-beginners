@@ -65,6 +65,8 @@ format:
     fig-cap-location: bottom
     smooth-scroll: true
     link-external-newwindow: true
+    mermaid:
+      theme: neutral
 
 execute:
   freeze: auto

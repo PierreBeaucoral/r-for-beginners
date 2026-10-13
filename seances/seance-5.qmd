@@ -65,7 +65,7 @@ wdi_2022 <- filter(wdi, year == 2022)
 
 ## The grammar of graphics ≈ 25 min
 
-A ggplot is not a "chart type". It is a **recipe** with independent ingredients, added with `+`:
+**After this section you can read any ggplot as a stack of layers and build one step by step.** A ggplot is not a "chart type". It is a **recipe** with independent ingredients, added with `+`:
 
 | Ingredient | Question it answers | Typical code |
 |---|---|---|
@@ -76,57 +76,73 @@ A ggplot is not a "chart type". It is a **recipe** with independent ingredients,
 | **labs** | What does the reader see in words? | `labs(title = , x = , y = , caption = )` |
 | **theme** | How does everything non-data look? | `theme_cours()` |
 
+::: {.definition}
+**Aesthetic**: a visual channel (x, y, colour, fill, size, shape) that you link to a variable inside `aes()`. **Geom**: the shape that draws the data (point, line, bar...). **Scale**: the rule that translates a data value into a position or a colour. **Facet**: a small multiple, the same chart repeated for each group.
+:::
+
+```{mermaid}
+flowchart LR
+  A[data] --> B[aes]
+  B --> C[geom]
+  C --> D[scales]
+  D --> E[labs]
+  E --> F[theme]
+```
+
 The rule to remember: **aesthetics map variables, arguments set constants**. `aes(colour = region)` colours by the data; `colour = "red"` outside `aes()` paints everything red.
 
-Let us build one plot, one ingredient at a time. Each step is shown small.
+::: {.callout-important}
+## Key idea
 
-**Step 1.** Data and aesthetics only: an empty canvas with axes.
+A ggplot is built by **adding layers with `+`**. You never ask for "a scatter plot": you give data, say which variables go where, and choose a shape. Everything else (scales, labels, theme) refines the result.
+:::
 
+Let us build one plot, one ingredient at a time. Steps 1 to 4 are shown side by side so you can see what each `+` adds; step 5 is the finished figure.
+
+:::: {layout-ncol=2}
 ```{r}
 #| label: layer-1
-#| fig-width: 6
-#| fig-height: 3.2
+#| fig-width: 5
+#| fig-height: 3.6
+#| fig-cap: "Step 1. Data and aesthetics only: an empty canvas with axes."
 wdi_2022_ok <- wdi_2022 |>
   drop_na(gdp_pc_ppp, life_exp)        # a point needs both coordinates
 
 ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp))
 ```
 
-**Step 2.** Add a geom: now the data are drawn.
-
 ```{r}
 #| label: layer-2
-#| fig-width: 6
-#| fig-height: 3.2
+#| fig-width: 5
+#| fig-height: 3.6
+#| fig-cap: "Step 2. Add a geom: now the data are drawn."
 ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp)) +
   geom_point()
 ```
 
-Most countries are squeezed on the left: income is very skewed. A log scale fixes it.
-
-**Step 3.** Add a scale: logarithmic x axis with dollar labels (never `1e+04`).
-
 ```{r}
 #| label: layer-3
-#| fig-width: 6
-#| fig-height: 3.2
+#| fig-width: 5
+#| fig-height: 3.6
+#| fig-cap: "Step 3. Add a scale: logarithmic x axis with dollar labels."
 ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp)) +
   geom_point() +
   scale_x_log10(labels = label_dollar(scale_cut = cut_short_scale()))
 ```
 
-**Step 4.** Map more variables: colour by region (a new aesthetic, a new scale).
-
 ```{r}
 #| label: layer-4
-#| fig-width: 8
-#| fig-height: 6
+#| fig-width: 5
+#| fig-height: 3.6
+#| fig-cap: "Step 4. Map one more variable: colour by region (new aesthetic, new scale)."
 ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp, colour = region)) +
   geom_point(alpha = 0.8) +
   scale_x_log10(labels = label_dollar(scale_cut = cut_short_scale())) +
-  scale_colour_manual(values = pal_regions) +
-  guides(colour = guide_legend(nrow = 4))
+  scale_colour_manual(values = pal_regions, guide = "none")
 ```
+::::
+
+In step 2 most countries are squeezed on the left: income is very skewed, so a log scale (step 3) spreads them out. In step 4 the legend is hidden only to keep the small panel readable; step 5 brings it back.
 
 **Step 5.** Labels and theme: the message in the title, units on the axes, the source.
 
@@ -155,9 +171,21 @@ ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp, colour = region)) +
 `R/theme_cours.R` calls `theme_set(theme_cours())`, so every plot uses the course theme by default. Writing `+ theme_cours(base_size = 11)` is only needed to change an argument (here, smaller text for small figures).
 :::
 
+::: {.callout-warning}
+## Common mistake
+
+Writing `aes(colour = "red")` instead of `colour = "red"`. Inside `aes()`, `"red"` is treated as a *variable* with one value, so ggplot invents a legend and picks its own colour (salmon, not red). **Fixed colour: outside `aes()`. Colour by data: inside `aes()`.**
+:::
+
+::: {.callout-note}
+## In plain words
+
+Think of a ggplot as a sandwich: the data is the bread, each `+` adds a filling. You can add or remove one filling without rebuilding the rest.
+:::
+
 ## The Gapminder scatter ≈ 30 min
 
-This is the figure that made Hans Rosling famous: income, health, population and region on one plot. We add a fourth variable (population, as point **size**) and label a few countries with `ggrepel`, which moves labels so they do not overlap.
+**After this section you can combine four variables on one chart and label a few points without clutter.** This is the figure that made Hans Rosling famous: income, health, population and region on one plot. We add a fourth variable (population, as point **size**) and label a few countries with `ggrepel`, which moves labels so they do not overlap.
 
 ```{r}
 #| label: gapminder
@@ -191,12 +219,27 @@ ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp)) +
   )
 ```
 
+::: {.callout-note}
+## How to read this chart
+
+- Each bubble is a country. **Higher** means longer life, **further right** means richer, **bigger** means more people.
+- The cloud rises fast on the left and flattens on the right: an extra \$10,000 matters a lot at \$2,000, little at \$40,000.
+- At the same income, countries can differ by about 20 years: income is far from the whole story.
+:::
+
 Reading tips:
 
 - The **x axis is logarithmic**: equal distances mean equal *percentage* differences in income. A move from \$2,000 to \$4,000 counts as much as from \$20,000 to \$40,000.
 - `scale_size_area()` makes the *area* proportional to population. The default `scale_size()` is also area-based but does not start at zero, which exaggerates small countries.
 - `geom_text_repel(data = ...)` takes **its own data**: only the four focus countries are labelled, the rest of the plot is unchanged. This is how you label a few points without clutter.
+- A **scale** is the rule from value to visual channel; `scale_size_area()` is the scale of the `size` aesthetic, `scale_x_log10()` that of `x`.
 - This is a cross-section, not a causal result: richer countries differ in many other ways (institutions, climate, disease burden). The curve describes, it does not say that money *causes* longevity.
+
+::: {.callout-warning}
+## Common mistake
+
+**Colour vs fill.** `colour` paints outlines and points; `fill` paints areas (bars, boxes, polygons). Using `colour = region` on `geom_col()` gives coloured outlines and grey bars: switch to `fill`. For `geom_point()` the default shape has no inside, so `colour` is the right one.
+:::
 
 ::: {.callout-tip}
 ## Exercise 5.1
@@ -229,6 +272,20 @@ wdi_2022 |>
 :::
 
 ## Lines: change over time ≈ 25 min
+
+**After this section you can draw a time series that highlights one country and labels lines directly.** Before choosing a geom, ask which question you are answering:
+
+::: {.callout-important}
+## Key idea: which chart for which question?
+
+| Your question | Chart | Geom |
+|---|---|---|
+| Compare groups or countries | bars | `geom_col()`, `geom_bar()` |
+| How is one variable spread? | histogram, density, boxplot | `geom_histogram()`, `geom_density()`, `geom_boxplot()` |
+| Are two variables related? | scatter plot | `geom_point()` |
+| How does it evolve over time? | line | `geom_line()` |
+| Where is it? | map | `geom_sf()` |
+:::
 
 A line connects observations **in a meaningful order** (here, years) for the **same unit** (here, a country). You must tell ggplot which points belong together with `group` (or with `colour`, which groups implicitly).
 
@@ -264,6 +321,14 @@ ggplot(life_lines, aes(x = year, y = life_exp, group = country)) +
     caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2000-2023. India in red; seven comparison countries in grey.", 95)
   )
 ```
+
+::: {.callout-note}
+## How to read this chart
+
+- The **red line** is the signal (India); the grey lines are context. Compare the *slopes*, not only the endpoints.
+- Lines that rise steadily mean steady gains; the small dip around 2020-2021 is a shock shared by several countries.
+- Names at the right end replace the legend: follow a line to its label.
+:::
 
 Points to notice:
 
@@ -311,7 +376,7 @@ ggplot(life_region, aes(x = year, y = life_med, colour = region)) +
 
 ## Bars: comparing groups ≈ 25 min
 
-Two different bar charts, two different geoms:
+**After this section you can pick `geom_col()` or `geom_bar()` and produce honest, sorted bar charts.** Two different bar charts, two different geoms:
 
 | You have... | Use | What it does |
 |---|---|---|
@@ -345,6 +410,12 @@ gdp_region |>
     caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022. Median across countries; North America has only 3 countries.", 95)
   )
 ```
+
+::: {.callout-warning}
+## Common mistake
+
+**Truncated bar axes.** A bar encodes a value by its *length*, so the axis must start at zero. Starting at 50 makes a difference of 10% look like a difference of 100%. If zero is not meaningful, use points or lines instead of bars. (Same logic: do not use 3D bars and do not leave bars in alphabetical order when the values can be ranked.)
+:::
 
 ### Counts: number of countries by income group
 
@@ -402,7 +473,7 @@ wdi_2022_ok |>
 
 ## Distributions ≈ 25 min
 
-To see how a variable is spread **across countries**, use one observation per country: `wdi_2022_ok`. (Pooling all years would count each country 24 times, and the observations would not be independent.)
+**After this section you can show how a variable is spread across countries, overall and by group.** To see how a variable is spread **across countries**, use one observation per country: `wdi_2022_ok`. (Pooling all years would count each country 24 times, and the observations would not be independent.)
 
 ### Histogram and density
 
@@ -424,6 +495,20 @@ ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp)) +
     caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022. One observation per country; red line = kernel density estimate.", 95)
   )
 ```
+
+::: {.callout-note}
+## How to read this chart
+
+- Each bar counts the countries in one slice of the (log) income axis: tall bars are common incomes.
+- The red density line smooths the bars. Two humps would mean two groups of countries; here the mass is spread over a wide range.
+- Because the axis is logarithmic, the same width means the same *percentage* gap, not the same dollar gap.
+:::
+
+::: {.callout-warning}
+## Common mistake
+
+**Linear scale on skewed data.** On a linear axis, a few rich countries stretch the range and nearly all others pile up on the left. Try `scale_x_log10()` for incomes, populations and any quantity spanning orders of magnitude, and say on the axis title that it is a log scale.
+:::
 
 ### Boxplot by group
 
@@ -447,6 +532,12 @@ wdi_2022_ok |>
     caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022. Box = quartiles and median; dots = individual countries.", 95)
   )
 ```
+
+::: {.callout-warning}
+## Common mistake
+
+**Too many colours.** Colouring by 7 regions plus a gradient plus size makes a chart nobody can decode. Use colour for one idea; grey for the rest. If you need more than about 6 colours, facet or highlight instead.
+:::
 
 Why `outliers = FALSE`? Otherwise the boxplot draws the outliers *and* the jitter draws them again.
 
@@ -480,6 +571,21 @@ In 2000, 31 countries had a life expectancy below 55 years; in 2022 only 3 do (t
 :::
 
 ## Maps ≈ 45 min
+
+**After this section you can draw a choropleth of the world, join it safely to the WDI data and check what did not match.**
+
+::: {.definition}
+**Choropleth**: a map where each area is coloured according to a value. **`sf` (simple features)**: the R format that stores shapes as a `geometry` column in a data frame.
+:::
+
+```{mermaid}
+flowchart LR
+  A[Shapes: Natural Earth] --> C[left_join on iso code]
+  B[Data: WDI 2022] --> C
+  C --> D[anti_join check]
+  D --> E[bin values]
+  E --> F[geom_sf + projection]
+```
 
 A choropleth colours areas by a value. A good one needs four things: **all** the geometries, a **safe join**, a **readable scale**, and an honest **projection**. A common mistake is to colour only a handful of countries, because the join was done on country names and kept only the matching rows.
 
@@ -529,6 +635,12 @@ world |>
   select(name, iso_a3_eh) |>
   head(8)
 ```
+
+::: {.callout-note}
+## Why it matters for development economics
+
+A map that silently drops countries drops the countries that often matter most: small, poor or fragile states (Kosovo, small island states) are exactly where name mismatches and missing data cluster. Checking the join is part of measuring development honestly.
+:::
 
 Never join on country *names*: "Russian Federation" (WDI) is "Russia" (Natural Earth), "Egypt, Arab Rep." is "Egypt". Codes are stable.
 
@@ -627,7 +739,7 @@ world_gdp |>
 
 ## Saving figures ≈ 10 min
 
-In a report, the figure on screen is not the figure in the file. Save with **explicit size and resolution** so the output is identical on every computer. Store the plot in an object, then call `ggsave()`.
+**After this section you can export a figure with a fixed size and resolution.** In a report, the figure on screen is not the figure in the file. Save with **explicit size and resolution** so the output is identical on every computer. Store the plot in an object, then call `ggsave()`.
 
 ```{r}
 #| label: save
@@ -648,6 +760,12 @@ ggsave(here("output", "gapminder.pdf"), plot = p_gapminder,
 - 300 dpi is the standard for print; 150 is enough for the web.
 - Without `plot =`, `ggsave()` saves the **last plot displayed**, which is fragile in a script.
 - `here()` builds the path from the project root, so the code runs on any machine.
+
+::: {.callout-important}
+## Key idea
+
+A figure is a **deliverable**: message in the title, units on the axes, source in the caption, fixed size on export. If the title says nothing, the reader has to do your analysis.
+:::
 
 ::: {.callout-tip}
 ## Exercise 5.6

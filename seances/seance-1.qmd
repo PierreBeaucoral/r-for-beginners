@@ -6,6 +6,9 @@ subtitle: "Interface, projects, objects, functions, packages, vectors and data f
 ```{r}
 #| label: setup
 library(tidyverse)
+library(here)
+library(scales)
+source(here("R", "theme_cours.R"))
 Sys.setenv(LANGUAGE = "en")  # error messages in English
 ```
 
@@ -22,7 +25,12 @@ Session objectives
 
 ## What are R and RStudio? {#sec-what}
 
-≈ 15 min. **R** is a programming language for statistics and data analysis. **RStudio** (now from Posit) is the editor we use to write and run R code. R is the engine, RStudio is the dashboard.
+≈ 15 min. **By the end of this section you can say what R and RStudio are, and why we use them.** **R** is a programming language for statistics and data analysis. **RStudio** (now from Posit) is the editor we use to write and run R code. R is the engine, RStudio is the dashboard.
+
+::: {.callout-note}
+## In plain words
+R is the engine of a car, RStudio is the dashboard and steering wheel. You can drive without a dashboard, but you will not want to.
+:::
 
 Why R for an economist?
 
@@ -48,7 +56,7 @@ Install in this order: first R from [CRAN](https://cran.r-project.org/), then RS
 
 ## RStudio Projects and file paths {#sec-projects}
 
-≈ 15 min. Do this from day one, it will save you hours later.
+≈ 15 min. **After this section you can set up a project folder in which every path works on any computer.** Do this from day one, it will save you hours later.
 
 An **RStudio Project** is a folder with a `.Rproj` file. When you open it, RStudio sets the working directory to that folder, so every path can be written *relative to the project*.
 
@@ -84,11 +92,26 @@ here::here("data", "wdi_panel.csv")
 wdi <- read_csv(here::here("data", "wdi_panel.csv"))
 ```
 
-The rule for the whole course: **one project per course or paper, data in `data/`, paths with `here::here()`**.
+::: {.callout-important}
+## Key idea
+**One project per course or paper, data in `data/`, paths built with `here::here()`.** Your code then runs on any computer without editing a single path.
+:::
+
+::: {.callout-warning}
+## Common mistake
+Opening an `.R` file by double-clicking it, outside the project. The working directory is then wrong and `here()` cannot find `data/`. Always open the `.Rproj` file first (the project name shows in the top-right corner of RStudio).
+:::
 
 ## Scripts, console and comments {#sec-scripts}
 
-≈ 10 min. You can type in the console, but what you type is lost. Code you want to keep goes in a **script**.
+≈ 10 min. **After this section you can write, run and comment code in a script.** You can type in the console, but what you type is lost. Code you want to keep goes in a **script**.
+
+```{mermaid}
+flowchart LR
+    A["Script: write and save code"] -->|"Cmd/Ctrl + Enter"| B["Console: R runs it"]
+    B --> C["Environment: objects in memory"]
+    B --> D["Plots / Files: outputs"]
+```
 
 - Write code in the script, then run the current line (or the selected lines) with `Ctrl + Enter` (Windows/Linux) or `Cmd + Enter` (Mac). R sends it to the console.
 - Run the whole script with `Ctrl/Cmd + Shift + Enter`.
@@ -99,11 +122,16 @@ The rule for the whole course: **one project per course or paper, data in `data/
 2 + 2   # a comment can also follow code
 ```
 
+::: {.callout-important}
+## Key idea
+**The script is your product; the console is a scratch pad.** If it is not in the script, it does not exist tomorrow.
+:::
+
 Good habit: a script should run from top to bottom in a fresh R session and give the same results. If it does not, something is hidden in your environment.
 
 ## Objects, types and operators {#sec-objects}
 
-≈ 25 min. An **object** is a name attached to a value. We create it with the assignment arrow `<-` (shortcut `Alt + -` on Windows, `Option + -` on Mac).
+≈ 25 min. **After this section you can create objects, tell their types apart and use operators.** An **object** is a name attached to a value. We create it with the assignment arrow `<-` (shortcut `Alt + -` on Windows, `Option + -` on Mac).
 
 ```{r}
 gdp_usa <- 20.9          # numeric
@@ -155,11 +183,18 @@ TRUE | FALSE
 !TRUE
 ```
 
-A frequent mistake: `=` assigns and `==` compares. Use `<-` to assign and keep `=` for function arguments.
+::: {.callout-warning}
+## Common mistake
+Writing `x = 3` when you mean `x == 3`. The first **assigns** (and prints nothing), the second **compares** and returns `TRUE` or `FALSE`. Use `<-` to assign and keep `=` for function arguments.
+:::
 
 ### Functions and arguments
 
-A **function** takes inputs (arguments) between parentheses and returns a result. Arguments can be given by position or by name.
+::: {.definition}
+**Function**: a named recipe. It takes inputs (**arguments**) between parentheses and returns a result.
+:::
+
+A function takes inputs (arguments) between parentheses and returns a result. Arguments can be given by position or by name.
 
 ```{r}
 sqrt(16)
@@ -177,7 +212,7 @@ total_gdp
 
 ## Getting help {#sec-help}
 
-≈ 10 min. Nobody remembers every function. Knowing how to find help is the skill.
+≈ 10 min. **After this section you can find and read the help page of any function.** Nobody remembers every function. Knowing how to find help is the skill.
 
 - `?mean` or `help("mean")` opens the help page of a function (in the Help pane).
 - `??regression` searches all installed help pages for a word.
@@ -212,7 +247,7 @@ Learn the basics first: you cannot check an answer you do not understand.
 
 ## Packages: install once, load every time {#sec-packages}
 
-≈ 10 min. Base R is small. Most of what we use comes from **packages**. Two distinct steps:
+≈ 10 min. **After this section you can tell installing a package from loading it.** Base R is small. Most of what we use comes from **packages**. Two distinct steps:
 
 1. **Install** (once per computer): download the package from CRAN. Type this **in the console**, never in a script you share.
 2. **Load** (in every session): `library()` makes its functions available. Put the `library()` calls at the **top of your script**.
@@ -230,13 +265,23 @@ install.packages(c(
 library(tidyverse)
 ```
 
+::: {.callout-note}
+## In plain words
+Installing a package is **buying a book** for your shelf (once). Loading it with `library()` is **taking it off the shelf** and opening it (every time you work).
+:::
+
+::: {.callout-warning}
+## Common mistake
+Putting `install.packages()` at the top of a script. It re-downloads the package on every run and breaks on a colleague's machine. Install in the console, load in the script.
+:::
+
 Install them all now (a few minutes). Each later session starts with a "Packages used today" line telling you what to install if something is missing.
 
 `tidyverse` is a bundle of packages (`ggplot2`, `dplyr`, `tibble`, `readr`, …) that we use throughout the course. For packages we use only once, `package::function()` (as in `here::here()`) calls a function without loading the whole package.
 
 ## Reading error messages {#sec-errors}
 
-≈ 15 min. You will get errors every day, including in ten years. An error is not a failure: R is telling you what it could not do. Read the message, then look at the line it points to. Here are the three you will meet most.
+≈ 15 min. **After this section you can read the three most common error messages and fix them.** You will get errors every day, including in ten years. An error is not a failure: R is telling you what it could not do. Read the message, then look at the line it points to. Here are the three you will meet most.
 
 **1. `object 'xxx' not found`**: you use a name that does not exist. Typo, wrong case, or you forgot to run the line that creates it.
 
@@ -260,11 +305,20 @@ c(1 2 3)            # missing commas
 feols(gdp ~ year, data = tibble(gdp = 1:3, year = 1:3))
 ```
 
+::: {.callout-important}
+## Key idea
+**An error message is information, not a verdict.** It names the object, symbol or function R choked on; start there.
+:::
+
 Method: (1) read the message aloud, (2) find the line, (3) check spelling, commas, quotes and parentheses, (4) check you ran the previous lines and loaded the package, (5) only then search online or ask an AI assistant, pasting the exact message.
 
 ## Vectors {#sec-vectors}
 
-≈ 25 min. A **vector** is an ordered list of values of the *same type*. It is the building block of R: a column of a data set is a vector.
+≈ 25 min. **After this section you can build, index and compute with vectors, including missing values.**
+
+::: {.definition}
+**Vector**: an ordered list of values of the *same type*. It is the building block of R: a column of a data set is a vector.
+:::
 
 ```{r}
 population <- c(331, 1411, 1380)             # numeric
@@ -304,6 +358,32 @@ population * 1000000         # millions to persons
 population / sum(population) # share of the total
 ```
 
+```{r}
+#| label: fig-vectorised
+#| code-fold: true
+#| code-summary: "Show the chart code (taught in Session 5)"
+#| fig-width: 8
+#| fig-height: 5
+tibble(country = countries, population = population,
+       share = 100 * population / sum(population)) |>
+  mutate(country = fct_reorder(country, share)) |>
+  ggplot(aes(x = share, y = country)) +
+  geom_col(fill = pal_cours[["principal"]]) +
+  geom_text(aes(label = paste0(round(share), " %")), hjust = -0.2) +
+  scale_x_continuous(limits = c(0, 55)) +
+  labs(
+    title = "China and India hold 89 % of the three countries' population",
+    x = "Share of the total population of the three countries (%)",
+    y = NULL,
+    caption = "Source: rounded 2020 values (World Bank, WDI), for teaching."
+  )
+```
+
+::: {.callout-note}
+## In plain words
+A vectorised operation is a **photocopier with a stamp**: one instruction (`/ sum(population)`) is applied to every sheet at once.
+:::
+
 ### Missing values
 
 `NA` means "value not available". It is not zero. Any calculation involving `NA` returns `NA`, because R cannot guess the missing value.
@@ -316,11 +396,48 @@ is.na(gini)
 sum(is.na(gini))           # how many missing values
 ```
 
-`na.rm = TRUE` is a choice, not a reflex: ask *why* the value is missing and whether dropping it biases the result (in WDI, Gini is missing for many poor countries).
+::: {.callout-warning}
+## Common mistake
+Using `na.rm = TRUE` as a reflex. **Ask why the value is missing** and whether dropping it biases the result. In WDI, Gini is missing for many poor countries, as the chart shows.
+:::
+
+```{r}
+#| label: fig-na-share
+#| code-fold: true
+#| code-summary: "Show the chart code (taught in Session 5)"
+#| fig-width: 8
+#| fig-height: 5
+read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE) |>
+  filter(year == 2019, !is.na(income)) |>
+  summarise(share_na = 100 * mean(is.na(gini)), .by = income) |>
+  mutate(income = factor(income, levels = c("Low income", "Lower middle income",
+                                            "Upper middle income", "High income"))) |>
+  ggplot(aes(x = income, y = share_na)) +
+  geom_col(fill = pal_cours[["accent"]]) +
+  geom_text(aes(label = paste0(round(share_na), " %")), vjust = -0.4) +
+  scale_y_continuous(limits = c(0, 100)) +
+  labs(
+    title = "Gini is missing for most countries in a single year",
+    x = "World Bank income group",
+    y = "Countries with a missing Gini, 2019 (%)",
+    caption = "Source: World Bank, World Development Indicators (WDI), 2019."
+  )
+```
+
+::: {.callout-important}
+## Why it matters for development economics
+Inequality data are scarcest where they matter most. Averaging only the countries that report a Gini describes the countries that measure inequality, not the world.
+:::
 
 ## Data frames and tibbles {#sec-dataframes}
 
-≈ 25 min. A **data frame** is a table: each column is a vector, all of the same length. A **tibble** is the tidyverse version of a data frame, with a cleaner display. We will use tibbles throughout.
+≈ 25 min. **After this section you can build a small table, explore it and compute a new column.**
+
+::: {.definition}
+**Data frame**: a table in which each column is a vector, all of the same length.
+:::
+
+A **tibble** is the tidyverse version of a data frame, with a cleaner display. We will use tibbles throughout.
 
 Our common thread starts here: three countries, with **rounded 2020 values** (GDP in current US$ billions, population in millions; approximate figures for teaching, from the World Bank WDI).
 
@@ -357,6 +474,11 @@ countries3[countries3$pop_mn > 1380, ]  # rows satisfying a condition
 
 The pattern is `data[rows, columns]`. Leaving one side empty means "all".
 
+::: {.callout-note}
+## In plain words
+Think of a spreadsheet: `data[2, 3]` is "row 2, column 3". The comma separates rows (before) from columns (after).
+:::
+
 ### Adding a column
 
 ```{r}
@@ -386,9 +508,39 @@ countries3[order(countries3$gdp_pc, decreasing = TRUE), c("country", "gdp_pc")]
 
 The US produces about six times more per person than China and about thirty-three times more than India (rounded 2020 values, current US$, so not adjusted for price differences between countries). Starting from session 2, we use the full World Bank data set with all countries.
 
+```{r}
+#| label: fig-gdp-pc
+#| code-fold: true
+#| code-summary: "Show the chart code (taught in Session 5)"
+#| fig-width: 8
+#| fig-height: 5
+countries3 |>
+  mutate(country = fct_reorder(country, gdp_pc)) |>
+  ggplot(aes(x = gdp_pc, y = country)) +
+  geom_col(fill = pal_cours[["principal"]]) +
+  geom_text(aes(label = label_dollar()(round(gdp_pc))), hjust = -0.1) +
+  scale_x_continuous(limits = c(0, 80000), labels = label_dollar()) +
+  labs(
+    title = "The US produces six times more per person than China",
+    x = "GDP per capita (current US$, 2020)",
+    y = NULL,
+    caption = "Source: rounded 2020 values (World Bank, WDI), for teaching."
+  )
+```
+
+::: {.callout-important}
+## Key idea
+**GDP per capita = GDP / population.** The total tells you the size of an economy; the ratio tells you how much it produces per person. With similar populations, China's total GDP (5.5 times India's) translates into a per-person gap of the same size.
+:::
+
 ## The pipe `|>` {#sec-pipe}
 
-≈ 5 min. The **pipe** `|>` passes the result on its left as the first argument of the function on its right. Code reads left to right, like a recipe:
+≈ 5 min. **After this section you can read and write a chain of steps with the pipe.** The **pipe** `|>` passes the result on its left as the first argument of the function on its right. Code reads left to right, like a recipe:
+
+```{mermaid}
+flowchart LR
+    A["c(1, 4, 9)"] -->|"then sum"| B["14"] -->|"then sqrt"| C["3.74"]
+```
 
 ```{r}
 sqrt(sum(c(1, 4, 9)))          # nested: read from the inside out
@@ -396,11 +548,16 @@ sqrt(sum(c(1, 4, 9)))          # nested: read from the inside out
 c(1, 4, 9) |> sum() |> sqrt()  # piped: "take c(1, 4, 9), then sum, then sqrt"
 ```
 
+::: {.callout-note}
+## In plain words
+Read `|>` as **"and then"**: take the vector, *and then* sum it, *and then* take the square root.
+:::
+
 Same result. From session 2 on, most of our code uses the pipe (shortcut `Ctrl/Cmd + Shift + M`).
 
 ## Exercises {#sec-exercises}
 
-≈ 25 min. Do 1.1 to 1.5 in class; 1.6 and 1.7 are for homework or if you finish early.
+≈ 25 min. **After these exercises you can apply every tool of the session on your own.** Do 1.1 to 1.5 in class; 1.6 and 1.7 are for homework or if you finish early.
 
 ::: {.callout-tip}
 ## Exercise 1.1
