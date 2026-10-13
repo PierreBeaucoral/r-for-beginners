@@ -14,6 +14,8 @@ Session objectives
 - Save a figure with explicit size and resolution.
 :::
 
+**Packages used today:** `tidyverse`, `scales`, `ggrepel`, `sf`, `rnaturalearth`, `rnaturalearthdata`, `here`. Install any that are missing with `install.packages()`.
+
 ```{r}
 #| label: setup
 Sys.setenv(LANGUAGE = "en")   # R messages in English
@@ -29,17 +31,37 @@ source(here("R", "theme_cours.R"))   # theme_cours(), pal_cours, pal_regions
 
 wdi <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
 
-# One row per country for the latest year with good coverage: the cross-section used below
+# One row per country for one year: the cross-section used below
 wdi_2022 <- wdi |>
   filter(year == 2022)
-
-ttl <- \(x, width = 60) str_wrap(x, width)   # wrap long message titles
-
-src <- "Source: World Bank, World Development Indicators (WDI)."
-cap <- \(x) str_wrap(paste(src, x), 95)             # source + note, wrapped
 ```
 
-Everything in this session uses the full panel (`wdi`, about 217 countries, 2000-2023). When a chart needs **one point per country**, we take one year, 2022 (`wdi_2022`). This matters: in the old version of this course, histograms were drawn on 63 pooled values of three countries. A chart is only as good as the question its data answer.
+Everything in this session uses the full panel (`wdi`, about 217 countries, 2000-2023). When a chart needs **one point per country**, we take one year, 2022 (`wdi_2022`). This matters: a common mistake is to draw a histogram on pooled years (for instance 63 values from three countries). A chart is only as good as the question its data answer.
+
+Why 2022? It is the latest year with good coverage for the variables we use (2023 has many more missing values). Session 4 used 2019, the last pre-COVID year, because it studied a relationship, not the present.
+
+## Check extremes before plotting ≈ 5 min
+
+Before drawing anything, look at the extremes: one absurd value stretches an axis and hides everything else.
+
+```{r}
+#| label: check-extremes
+wdi_2022 |>
+  drop_na(life_exp) |>
+  slice_min(life_exp, n = 3) |>
+  select(country, iso3c, life_exp)
+```
+
+The Central African Republic shows a life expectancy of 18.8 years in 2022. The next lowest country is at about 54. This value is implausible (no country has such a life expectancy in 2022): it is a data artefact, not a finding. We never edit the raw file; we **exclude the value explicitly and say so**. Setting only `life_exp` to `NA` keeps the country's other variables (for example electricity access, used in the map below).
+
+```{r}
+#| label: fix-caf
+# Implausible WDI value: CAF 2022 life expectancy = 18.8 (next lowest is about 54)
+wdi <- wdi |>
+  mutate(life_exp = if_else(iso3c == "CAF" & year == 2022, NA_real_, life_exp))
+
+wdi_2022 <- filter(wdi, year == 2022)
+```
 
 ## The grammar of graphics ≈ 25 min
 
@@ -90,34 +112,35 @@ Most countries are squeezed on the left: income is very skewed. A log scale fixe
 #| fig-height: 3.2
 ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp)) +
   geom_point() +
-  scale_x_log10(labels = label_dollar())
+  scale_x_log10(labels = label_dollar(scale_cut = cut_short_scale()))
 ```
 
 **Step 4.** Map more variables: colour by region (a new aesthetic, a new scale).
 
 ```{r}
 #| label: layer-4
-#| fig-width: 6
-#| fig-height: 3.8
+#| fig-width: 8
+#| fig-height: 6
 ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp, colour = region)) +
   geom_point(alpha = 0.8) +
-  scale_x_log10(labels = label_dollar()) +
-  scale_colour_manual(values = pal_regions)
+  scale_x_log10(labels = label_dollar(scale_cut = cut_short_scale())) +
+  scale_colour_manual(values = pal_regions) +
+  guides(colour = guide_legend(nrow = 4))
 ```
 
 **Step 5.** Labels and theme: the message in the title, units on the axes, the source.
 
 ```{r}
 #| label: layer-5
-#| fig-width: 6
-#| fig-height: 4.2
+#| fig-width: 8
+#| fig-height: 6.5
 ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp, colour = region)) +
   geom_point(alpha = 0.8) +
-  scale_x_log10(labels = label_dollar()) +
+  scale_x_log10(labels = label_dollar(scale_cut = cut_short_scale())) +
   scale_colour_manual(values = pal_regions) +
-  guides(colour = guide_legend(nrow = 3, title.position = "top")) +
+  guides(colour = guide_legend(nrow = 4, title.position = "top")) +
   labs(
-    title = ttl("Richer countries live longer, but the gain flattens at the top"),
+    title = str_wrap("Richer countries live longer, but gains flatten at the top", 60),
     x = "GDP per capita, PPP (constant 2021 international $, log scale)",
     y = "Life expectancy at birth (years)",
     colour = "Region",
@@ -138,8 +161,8 @@ This is the figure that made Hans Rosling famous: income, health, population and
 
 ```{r}
 #| label: gapminder
-#| fig-width: 9
-#| fig-height: 6
+#| fig-width: 10
+#| fig-height: 8
 focus <- c("China", "India", "Nigeria", "United States")
 
 ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp)) +
@@ -147,20 +170,24 @@ ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp)) +
   geom_text_repel(
     data = filter(wdi_2022_ok, country %in% focus),
     aes(label = country),
-    min.segment.length = 0, box.padding = 0.8, seed = 1, size = 4.2
+    min.segment.length = 0, box.padding = 1, point.padding = 0.5, seed = 1, size = 4.2,
+    bg.color = "white", bg.r = 0.15
   ) +
-  scale_x_log10(labels = label_dollar()) +
-  scale_size_area(max_size = 16, labels = label_number(scale = 1e-6, suffix = " M"),
-                  breaks = c(1e7, 1e8, 1e9)) +
+  scale_x_log10(labels = label_dollar(scale_cut = cut_short_scale())) +
+  scale_size_area(max_size = 14, breaks = c(1e7, 1e8, 1e9),
+                  labels = c("10 M", "100 M", "1 B")) +
   scale_colour_manual(values = pal_regions) +
-  guides(colour = guide_legend(nrow = 4, title.position = "top", override.aes = list(size = 4)),
-         size = guide_legend(title.position = "top")) +
+  guides(colour = guide_legend(nrow = 3, title.position = "top", order = 1,
+                               override.aes = list(size = 4)),
+         size = guide_legend(title.position = "top", order = 2)) +
+  theme(legend.position = "bottom", legend.box = "vertical",
+        legend.box.just = "left", legend.spacing.y = unit(2, "pt")) +
   labs(
-    title = ttl("Income and life expectancy rise together, but similar incomes can hide a 20-year gap"),
+    title = str_wrap("Income and life expectancy rise together, but similar incomes can hide a 20-year gap", 60),
     x = "GDP per capita, PPP (constant 2021 international $, log scale)",
     y = "Life expectancy at birth (years)",
     colour = "Region", size = "Population",
-    caption = cap("Year 2022. One point per country; countries with missing data are dropped.")
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022. One point per country; countries with missing data are dropped.", 95)
   )
 ```
 
@@ -190,12 +217,13 @@ wdi_2022 |>
   scale_x_continuous(labels = label_number(suffix = "%")) +
   scale_colour_manual(values = c("Low income" = "#D55E00", "Lower middle income" = "#E69F00",
                                  "Upper middle income" = "#56B4E9", "High income" = "#0072B2")) +
+  guides(colour = guide_legend(nrow = 2)) +
   labs(
-    title = ttl("Countries without universal electricity have markedly lower life expectancy"),
+    title = str_wrap("Countries without universal electricity have markedly lower life expectancy", 60),
     x = "Population with access to electricity (%)",
     y = "Life expectancy at birth (years)",
     colour = "Income group",
-    caption = cap("Year 2022.")
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022.", 95)
   )
 ```
 :::
@@ -230,10 +258,10 @@ ggplot(life_lines, aes(x = year, y = life_exp, group = country)) +
   scale_x_continuous(breaks = seq(2000, 2020, 5), expand = expansion(mult = c(0.02, 0.02))) +
   coord_cartesian(xlim = c(2000, 2027), clip = "off") +
   labs(
-    title = ttl("India gained nine years of life expectancy since 2000, more than Brazil or China"),
+    title = str_wrap("India gained nine years of life expectancy since 2000, more than Brazil or China", 60),
     x = "Year",
     y = "Life expectancy at birth (years)",
-    caption = cap("India in red; seven comparison countries in grey.")
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2000-2023. India in red; seven comparison countries in grey.", 95)
   )
 ```
 
@@ -243,7 +271,7 @@ Points to notice:
 - Labels sit at the **end of the lines** (`year == max(year)`), so no legend is needed. Direct labelling is faster to read than a legend.
 - `coord_cartesian(xlim = ...)` leaves room on the right for the labels, and `geom_text_repel(direction = "y")` pushes them apart vertically so they do not overlap.
 - The 2020-2021 dip is visible for several countries: COVID-19 excess mortality.
-- Old code used `size =` for line width. In current ggplot2 it is `linewidth =`.
+- In current ggplot2 the line width argument is `linewidth =` (not `size =`).
 
 ::: {.callout-tip}
 ## Exercise 5.2
@@ -273,10 +301,10 @@ ggplot(life_region, aes(x = year, y = life_med, colour = region)) +
   scale_x_continuous(breaks = seq(2000, 2020, 5), expand = expansion(mult = c(0.02, 0.05))) +
   coord_cartesian(xlim = c(2000, 2028), clip = "off") +
   labs(
-    title = ttl("Sub-Saharan Africa gained 12 years since 2000 but still trails every other region"),
+    title = str_wrap("Sub-Saharan Africa gained 12 years since 2000 but still trails every other region", 60),
     x = "Year",
     y = "Median life expectancy at birth (years)",
-    caption = cap("Median across countries of each region (countries are not weighted by population).")
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2000-2023. Median across countries of each region (countries are not weighted by population).", 95)
   )
 ```
 :::
@@ -290,7 +318,7 @@ Two different bar charts, two different geoms:
 | raw rows, you want **counts** | `geom_bar()` | counts rows for you |
 | an already computed number per group | `geom_col()` | uses your `y` as the bar height |
 
-(The old course wrote `geom_bar(stat = "identity")`. `geom_col()` is the same thing, clearer.)
+(A common mistake is `geom_bar(stat = "identity")`. `geom_col()` is the same thing, clearer.)
 
 ### Values: median GDP per capita by region, sorted
 
@@ -307,14 +335,14 @@ gdp_region |>
   mutate(region = fct_reorder(region, gdp_med)) |>
   ggplot(aes(x = gdp_med, y = region)) +
   geom_col(fill = pal_cours[["principal"]], width = 0.7) +
-  geom_text(aes(label = label_dollar(accuracy = 1)(gdp_med)), hjust = -0.1, size = 4) +
-  scale_x_continuous(labels = label_dollar(), expand = expansion(mult = c(0, 0.15))) +
+  geom_text(aes(label = label_dollar(accuracy = 0.1, scale_cut = cut_short_scale())(gdp_med)), hjust = -0.1, size = 4) +
+  scale_x_continuous(labels = label_dollar(scale_cut = cut_short_scale()), expand = expansion(mult = c(0, 0.15))) +
   scale_y_discrete(labels = label_wrap(28)) +
   labs(
-    title = ttl("A typical North American country is about seven times richer than one in South Asia"),
+    title = str_wrap("A typical North American country is about seven times richer than one in South Asia", 60),
     x = "Median GDP per capita, PPP (constant 2021 international $)",
     y = NULL,
-    caption = cap("Year 2022. Median across countries; North America has only 3 countries.")
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022. Median across countries; North America has only 3 countries.", 95)
   )
 ```
 
@@ -336,10 +364,10 @@ wdi_2022 |>
   scale_x_discrete(labels = label_wrap(14)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
   labs(
-    title = ttl("High-income countries are the largest group, but 25 countries are still low-income"),
+    title = str_wrap("High-income countries are the largest group, but 25 countries are still low-income", 60),
     x = "World Bank income group",
     y = "Number of countries",
-    caption = cap("Year 2022, all economies in the WDI panel.")
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022. All economies in the WDI panel.", 95)
   )
 ```
 
@@ -354,19 +382,20 @@ Show the **ten richest countries** in 2022 (GDP per capita, PPP) as sorted horiz
 ```{r}
 #| label: ex-5-3
 #| fig-width: 8
-#| fig-height: 5
+#| fig-height: 6.5
 wdi_2022_ok |>
   slice_max(gdp_pc_ppp, n = 10) |>
   mutate(country = fct_reorder(country, gdp_pc_ppp)) |>
   ggplot(aes(x = gdp_pc_ppp, y = country, fill = region)) +
   geom_col(width = 0.7) +
-  scale_x_continuous(labels = label_dollar(), expand = expansion(mult = c(0, 0.05))) +
+  scale_x_continuous(labels = label_dollar(scale_cut = cut_short_scale()), expand = expansion(mult = c(0, 0.05))) +
   scale_fill_manual(values = pal_regions) +
+  guides(fill = guide_legend(nrow = 4)) +
   labs(
-    title = ttl("The richest countries are small economies, mostly in Europe and the Gulf"),
+    title = str_wrap("The richest countries are small economies, mostly in Europe and the Gulf", 60),
     x = "GDP per capita, PPP (constant 2021 international $)",
     y = NULL, fill = "Region",
-    caption = cap("Year 2022.")
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022.", 95)
   )
 ```
 :::
@@ -387,12 +416,12 @@ ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp)) +
   geom_histogram(aes(y = after_stat(density)), bins = 25,
                  fill = pal_cours[["principal"]], alpha = 0.6, colour = "white") +
   geom_density(colour = pal_cours[["accent"]], linewidth = 1) +
-  scale_x_log10(labels = label_dollar()) +
+  scale_x_log10(labels = label_dollar(scale_cut = cut_short_scale())) +
   labs(
-    title = ttl("World incomes span more than a 100-fold range, with no single typical country"),
+    title = str_wrap("World incomes span more than a 100-fold range, with no single typical country", 60),
     x = "GDP per capita, PPP (constant 2021 international $, log scale)",
     y = "Density",
-    caption = cap("Year 2022. One observation per country; red line = kernel density estimate.")
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022. One observation per country; red line = kernel density estimate.", 95)
   )
 ```
 
@@ -410,12 +439,12 @@ wdi_2022_ok |>
   geom_boxplot(outliers = FALSE, fill = "grey92", colour = "grey30", width = 0.55) +
   geom_jitter(width = 0.15, alpha = 0.5, colour = pal_cours[["principal"]], size = 1.6) +
   scale_x_discrete(labels = label_wrap(14)) +
-  scale_y_log10(labels = label_dollar()) +
+  scale_y_log10(labels = label_dollar(scale_cut = cut_short_scale())) +
   labs(
-    title = ttl("Income groups barely overlap, which is expected: they are defined by income"),
+    title = str_wrap("Income groups barely overlap, by construction, yet each hides a wide range of incomes", 60),
     x = "World Bank income group",
-    y = "GDP per capita, PPP (constant 2021 international $, log scale)",
-    caption = cap("Year 2022. Box = quartiles and median; dots = individual countries.")
+    y = str_wrap("GDP per capita, PPP (constant 2021 international $, log scale)", 40),
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022. Box = quartiles and median; dots = individual countries.", 95)
   )
 ```
 
@@ -440,19 +469,19 @@ wdi |>
   geom_histogram(binwidth = 2.5, fill = pal_cours[["principal"]], colour = "white") +
   facet_wrap(~ year) +
   labs(
-    title = ttl("The low-life-expectancy tail shrank between 2000 and 2022"),
+    title = str_wrap("The low-life-expectancy tail shrank between 2000 and 2022", 60),
     x = "Life expectancy at birth (years)",
     y = "Number of countries",
-    caption = cap("One observation per country and year.")
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2000 and 2022. One observation per country and year.", 95)
   )
 ```
 
-In 2000, 31 countries had a life expectancy below 55 years; in 2022 only 4 do. The whole distribution shifted to the right.
+In 2000, 31 countries had a life expectancy below 55 years; in 2022 only 3 do (the Central African Republic value was excluded above). The whole distribution shifted to the right.
 :::
 
 ## Maps ≈ 45 min
 
-A choropleth colours areas by a value. A good one needs four things: **all** the geometries, a **safe join**, a **readable scale**, and an honest **projection**. The old version of this course coloured three countries only, because it joined on country names and kept only matching rows.
+A choropleth colours areas by a value. A good one needs four things: **all** the geometries, a **safe join**, a **readable scale**, and an honest **projection**. A common mistake is to colour only a handful of countries, because the join was done on country names and kept only the matching rows.
 
 ### 1. Geometries: one row per country, in an `sf` table
 
@@ -538,9 +567,9 @@ world_gdp |>
   guides(fill = guide_legend(nrow = 2, title.position = "top")) +
   labs(
     x = NULL, y = NULL,
-    title = ttl("Income per head is highest in the North and lowest across Sub-Saharan Africa and South Asia"),
+    title = str_wrap("Income per head is highest in the North and lowest in Sub-Saharan Africa", 60),
     fill = "GDP per capita, PPP (constant 2021 international $)",
-    caption = cap("Year 2022. Light grey: no data.")
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022. Light grey: no data.", 95)
   ) +
   theme(axis.text = element_blank(), panel.grid.major = element_line(colour = "grey94"))
 ```
@@ -567,7 +596,7 @@ Map **access to electricity** (% of population) in 2022 for all countries, in bi
 bottom3 <- world_gdp |>
   drop_na(elec_access) |>
   slice_min(elec_access, n = 3, with_ties = FALSE) |>
-  mutate(label = paste0(country, "\n", round(elec_access), "%")) |>
+  mutate(label = paste0(str_remove(country, ",.*"), " ", round(elec_access), "%")) |>
   st_point_on_surface()                       # one point inside each polygon
 
 bottom3$label                                  # check which countries are annotated
@@ -580,17 +609,17 @@ world_gdp |>
   ggplot() +
   geom_sf(aes(fill = elec_class), colour = "white", linewidth = 0.1) +
   geom_label_repel(data = bottom3, aes(label = label, geometry = geometry),
-                   stat = "sf_coordinates", size = 3.4, nudge_y = -4e6, nudge_x = 2e6,
-                   min.segment.length = 0, seed = 1) +
+                   stat = "sf_coordinates", size = 3.4, fill = alpha("white", 0.85),
+                   min.segment.length = Inf, box.padding = 0.2, seed = 1) +  # no leader lines
   scale_fill_manual(values = c("< 50%" = "#08306b", "50-80%" = "#2171b5", "80-99%" = "#9ecae1",
                                "99-100%" = "#eff3ff", "No data" = "grey85")) +
   coord_sf(crs = "+proj=robin") +
   guides(fill = guide_legend(nrow = 2, title.position = "top")) +
   labs(
     x = NULL, y = NULL,
-    title = ttl("Electricity is nearly universal outside Sub-Saharan Africa, where eight countries are below 20%"),
+    title = str_wrap("Seven of the eight countries with under 20% electricity access are in Sub-Saharan Africa", 60),
     fill = "Population with access to electricity",
-    caption = cap("Year 2022. Labels: the three countries with the lowest access. Light grey: no data.")
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022. Labels (placed near the countries): the three with the lowest access. Light grey: no data.", 95)
   ) +
   theme(axis.text = element_blank(), panel.grid.major = element_line(colour = "grey94"))
 ```
@@ -607,7 +636,7 @@ dir.create(here("output"), showWarnings = FALSE)   # output/ is created if missi
 
 p_gapminder <- ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp, colour = region)) +
   geom_point() +
-  scale_x_log10(labels = label_dollar())
+  scale_x_log10(labels = label_dollar(scale_cut = cut_short_scale()))
 
 ggsave(here("output", "gapminder.png"), plot = p_gapminder,
        width = 8, height = 5, units = "in", dpi = 300)    # for Word / slides
@@ -639,10 +668,10 @@ p_life_region <- wdi_2022 |>
   geom_boxplot(fill = "grey92", colour = "grey30", width = 0.55) +
   scale_y_discrete(labels = label_wrap(28)) +
   labs(
-    title = ttl("Life expectancy varies far more within Sub-Saharan Africa than within any other region"),
+    title = str_wrap("Sub-Saharan Africa has the lowest median life expectancy, about 9 years below the next region", 60),
     x = "Life expectancy at birth (years)",
     y = NULL,
-    caption = cap("Year 2022. One observation per country.")
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022. One observation per country.", 95)
   )
 
 p_life_region
@@ -661,7 +690,7 @@ ggsave(here("output", "life_exp_region.png"), plot = p_life_region,
 
 - A ggplot is a stack of independent layers: data, aesthetics, geoms, scales, labels, theme. Learn the grammar, not the recipes.
 - `aes()` maps variables; arguments outside `aes()` set constants.
-- Log scales and `scales::label_dollar()` / `label_number()` make skewed development data readable. Never leave `1e+04` on an axis.
+- Log scales and `scales::label_dollar(scale_cut = cut_short_scale())` / `label_number()` make skewed development data readable. Never leave `1e+04` on an axis.
 - Title = the message; axes with units; caption with the source. Direct labels beat legends.
 - Highlight one series in colour and grey out the rest (signal vs context). Sort bars, start them at zero, use `geom_col()` for values and `geom_bar()` for counts.
 - For distributions, use one observation per country; do not pool years and call them independent.

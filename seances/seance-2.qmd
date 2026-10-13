@@ -18,6 +18,8 @@ library(WDI)         # World Bank API (used in a non-evaluated chunk)
 source(here("R", "theme_cours.R"))
 ```
 
+**Packages used today:** `tidyverse`, `here`, `janitor`, `readxl`, `writexl`, `lubridate`, `scales`, `WDI`. If one is missing, run `install.packages("name")` in the console.
+
 ::: {.objectifs}
 Session objectives
 
@@ -28,15 +30,18 @@ Session objectives
 - Get World Bank data with the `WDI` package, and understand why we cache it.
 :::
 
-## 1. Where are my files? (≈ 15 min)
+## 1. Where are my files? (≈ 10 min)
 
 Last session you worked in an RStudio project. The project folder is the **working directory**. Our layout:
 
 ```
-r-for-beginners/
-├── data/          # data given to you. data/raw/ = original files, READ-ONLY
-├── output/        # everything YOU produce (tables, exports)
-└── seances/       # the course pages
+r-course/
+├── r-course.Rproj
+├── data/          # data given to you (from data.zip)
+│   └── raw/       # original files, READ-ONLY
+├── R/
+│   └── theme_cours.R   # shared chart theme (from data.zip)
+└── output/        # everything YOU produce (tables, exports)
 ```
 
 Rule: **never write into `data/`**. If you overwrite a raw file, the original is gone. Everything you create goes to `output/`.
@@ -44,13 +49,14 @@ Rule: **never write into `data/`**. If you overwrite a raw file, the original is
 Do not use `setwd("C:/Users/me/...")`. It breaks on every other computer. Use `here::here()`: it builds a path from the project root, whatever the machine.
 
 ```{r}
-here("data", "raw", "SCIM.csv")   # the absolute part depends on your machine
+# here("data", "raw", "SCIM.csv") returns the full path on your machine,
+# e.g. "/home/you/r-course/data/raw/SCIM.csv" (not printed here)
 file.exists(here("data", "raw", "SCIM.csv"))
 ```
 
 `file.exists()` returning `TRUE` is the first check to make when an import fails.
 
-## 2. CSV files with `readr` (≈ 35 min)
+## 2. CSV files with `readr` (≈ 30 min)
 
 A CSV (comma-separated values) file is plain text: one row per line, values separated by a delimiter. `read_csv()` guesses the type of each column from the first 1000 rows.
 
@@ -86,6 +92,12 @@ scim <- clean_names(scim)
 names(scim)
 ```
 
+::: {.callout-note}
+## Preview: dplyr verbs
+
+`select()`, `filter()`, `count()`, `distinct()`, `mutate()`, `slice_max()` and `summarise()` are taught in Session 3 (ggplot in Session 5). For now, copy the pattern.
+:::
+
 Let us drop the French duplicates and the empty columns, and count what is left:
 
 ```{r}
@@ -106,7 +118,7 @@ scim |>
   mutate(date = yq(time))
 ```
 
-## 3. Excel files with `readxl` (≈ 25 min)
+## 3. Excel files with `readxl` (≈ 20 min)
 
 `read_excel()` reads `.xls` and `.xlsx` files. An Excel file can contain several **sheets**, so first list them:
 
@@ -115,7 +127,8 @@ path_xls <- here("data", "raw", "SCIM.xls")
 excel_sheets(path_xls)
 ```
 
-Two sheets. By default `read_excel()` reads the first one. Choose a sheet by name or position with `sheet =`:
+Two sheets. By default `read_excel()` reads the first one. Choose a sheet by name or position with `sheet =`. Files made with French-language Excel often have French sheet names (`Feuil1`, `Feuil2`) and column names with accents or dashes (`Août-2022`); R needs backticks around such names.
+
 
 ```{r}
 scim_xls <- read_excel(path_xls, sheet = "Sheet1")
@@ -129,7 +142,7 @@ This file is not the same as the CSV: it is in **wide format** (one column per m
 dim(read_excel(path_xls, sheet = "Feuil2"))
 ```
 
-It is empty (0 rows, 0 columns). Lesson: do not assume what a sheet contains.
+It is empty (0 rows, 0 columns); `Feuil2` is the French default name for "Sheet 2". Lesson: do not assume what a sheet contains.
 
 To read only part of a sheet, use `range =` (Excel notation):
 
@@ -137,7 +150,7 @@ To read only part of a sheet, use `range =` (Excel notation):
 read_excel(path_xls, sheet = "Sheet1", range = "A1:D6")
 ```
 
-## 4. A hard import: the WID file (≈ 40 min)
+## 4. A hard import: the WID file (≈ 35 min)
 
 Real files are rarely clean. `WID_Data.csv` comes from the [World Inequality Database](https://wid.world): Gini coefficients of pre-tax national income for China, India and the USA. Before running any code, **look at the raw text**:
 
@@ -201,7 +214,7 @@ all.equal(wid$gini, wid_gini$gini)
 
 The cleaned file carries an `iso3c` code (country code). Notice that WID writes `"USA"` where the World Bank writes `"United States"`: country names differ between sources. We will see in session 3 why you must join on codes, never on names.
 
-## 5. Writing files (≈ 30 min)
+## 5. Writing files (≈ 25 min)
 
 Create the `output/` folder (nothing happens if it already exists), then write there.
 
@@ -244,7 +257,7 @@ When to use what?
 | `.xlsx` | the recipient works in Excel (several tables in one file) |
 | `.rds` | you want to reload the object in R exactly as it was (intermediate results) |
 
-## 6. Data from packages: the World Bank (≈ 30 min)
+## 6. Data from packages: the World Bank (≈ 25 min)
 
 Many institutions provide an R package to fetch their data directly. The `WDI` package queries the World Bank's **World Development Indicators**. Each indicator has a code, e.g. `NY.GDP.MKTP.CD` = GDP in current US dollars. Find a code with `WDIsearch()`:
 
@@ -288,9 +301,9 @@ wdi_panel <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
 glimpse(wdi_panel)
 ```
 
-## 7. A first look at the data (≈ 10 min)
+## 7. A first look at the data (≈ 5 min)
 
-Just to see where we are going (session 5 explains each line): GDP of the three countries.
+Just to see where we are going (session 5 explains each line; for now, copy the pattern): GDP of the three countries.
 
 ```{r}
 #| fig-width: 8
@@ -304,7 +317,7 @@ ggplot(wdi3, aes(x = year, y = gdp, colour = country)) +
   labs(
     title = "China's GDP rose from 12% to 70% of the US level in 20 years",
     x = NULL, y = "GDP (current US$, trillions)", colour = NULL,
-    caption = "Source: World Bank, WDI (NY.GDP.MKTP.CD), cached copy."
+    caption = "Source: World Bank, World Development Indicators (WDI), 2000-2020."
   )
 ```
 
@@ -339,7 +352,7 @@ From `data/raw/SCIM.xls`, read sheet `Sheet1`, but only the cells `A1:C11` (coun
 ```{r}
 ex2 <- read_excel(here("data", "raw", "SCIM.xls"), sheet = "Sheet1", range = "A1:C11")
 ex2
-ex2 |> slice_max(`Août-2022`, n = 1)
+ex2 |> slice_max(`Août-2022`, n = 1)   # backticks: accent and dash in the name
 ```
 :::
 
@@ -408,4 +421,4 @@ wdi_panel |>
 - Write with `write_csv()`, `write_xlsx()` (a named list gives several sheets) and `saveRDS()` to keep R objects exactly.
 - Cache API data (`WDI`) in a file: reproducible, offline, fast.
 
-Next: [Session 3: Data manipulation](seance-3.qmd).
+Next: [Session 3: Data manipulation (dplyr, tidyr, joins)](seance-3.qmd).

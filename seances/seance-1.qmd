@@ -48,12 +48,12 @@ Install in this order: first R from [CRAN](https://cran.r-project.org/), then RS
 
 ## RStudio Projects and file paths {#sec-projects}
 
-≈ 20 min. Do this from day one, it will save you hours later.
+≈ 15 min. Do this from day one, it will save you hours later.
 
 An **RStudio Project** is a folder with a `.Rproj` file. When you open it, RStudio sets the working directory to that folder, so every path can be written *relative to the project*.
 
 1. `File > New Project > New Directory > New Project`. Name it `r-course` and choose where to put it.
-2. Inside the project folder, create a sub-folder `data/` (Files pane > *New Folder*). All data files go there.
+2. Unzip `data.zip` (home page) into the project folder. It creates `data/` (all data files go there), `data/raw/` and `R/theme_cours.R`.
 3. Create a script: `File > New File > R Script`, save it as `session1.R` in the project folder.
 
 Your project folder now looks like this:
@@ -62,8 +62,11 @@ Your project folder now looks like this:
 r-course/
 ├── r-course.Rproj
 ├── session1.R
-└── data/
-    └── (your data files)
+├── data/          # the course data (from data.zip)
+│   └── raw/       # original files, read-only
+├── R/
+│   └── theme_cours.R   # shared chart theme (from data.zip)
+└── output/        # everything you produce (created in session 2)
 ```
 
 ### Why `here::here()` and never `setwd()`
@@ -85,7 +88,7 @@ The rule for the whole course: **one project per course or paper, data in `data/
 
 ## Scripts, console and comments {#sec-scripts}
 
-≈ 15 min. You can type in the console, but what you type is lost. Code you want to keep goes in a **script**.
+≈ 10 min. You can type in the console, but what you type is lost. Code you want to keep goes in a **script**.
 
 - Write code in the script, then run the current line (or the selected lines) with `Ctrl + Enter` (Windows/Linux) or `Cmd + Enter` (Mac). R sends it to the console.
 - Run the whole script with `Ctrl/Cmd + Shift + Enter`.
@@ -100,7 +103,7 @@ Good habit: a script should run from top to bottom in a fresh R session and give
 
 ## Objects, types and operators {#sec-objects}
 
-≈ 30 min. An **object** is a name attached to a value. We create it with the assignment arrow `<-` (shortcut `Alt + -` on Windows, `Option + -` on Mac).
+≈ 25 min. An **object** is a name attached to a value. We create it with the assignment arrow `<-` (shortcut `Alt + -` on Windows, `Option + -` on Mac).
 
 ```{r}
 gdp_usa <- 20.9          # numeric
@@ -174,7 +177,7 @@ total_gdp
 
 ## Getting help {#sec-help}
 
-≈ 15 min. Nobody remembers every function. Knowing how to find help is the skill.
+≈ 10 min. Nobody remembers every function. Knowing how to find help is the skill.
 
 - `?mean` or `help("mean")` opens the help page of a function (in the Help pane).
 - `??regression` searches all installed help pages for a word.
@@ -209,26 +212,31 @@ Learn the basics first: you cannot check an answer you do not understand.
 
 ## Packages: install once, load every time {#sec-packages}
 
-≈ 15 min. Base R is small. Most of what we use comes from **packages**. Two distinct steps:
+≈ 10 min. Base R is small. Most of what we use comes from **packages**. Two distinct steps:
 
 1. **Install** (once per computer): download the package from CRAN. Type this **in the console**, never in a script you share.
 2. **Load** (in every session): `library()` makes its functions available. Put the `library()` calls at the **top of your script**.
 
 ```{r}
 #| eval: false
-# Step 1, once, in the console
-install.packages("tidyverse")
-install.packages("here")
+# Step 1, once, in the console: every package used in this course
+install.packages(c(
+  "tidyverse", "here", "janitor", "readxl", "writexl", "lubridate", "scales",
+  "WDI", "gt", "fixest", "modelsummary", "ggrepel", "sf", "rnaturalearth",
+  "rnaturalearthdata", "patchwork", "plotly", "crosstalk", "shiny"
+))
 
 # Step 2, at the top of every script
 library(tidyverse)
 ```
 
+Install them all now (a few minutes). Each later session starts with a "Packages used today" line telling you what to install if something is missing.
+
 `tidyverse` is a bundle of packages (`ggplot2`, `dplyr`, `tibble`, `readr`, …) that we use throughout the course. For packages we use only once, `package::function()` (as in `here::here()`) calls a function without loading the whole package.
 
 ## Reading error messages {#sec-errors}
 
-≈ 20 min. You will get errors every day, including in ten years. An error is not a failure: R is telling you what it could not do. Read the message, then look at the line it points to. Here are the three you will meet most.
+≈ 15 min. You will get errors every day, including in ten years. An error is not a failure: R is telling you what it could not do. Read the message, then look at the line it points to. Here are the three you will meet most.
 
 **1. `object 'xxx' not found`**: you use a name that does not exist. Typo, wrong case, or you forgot to run the line that creates it.
 
@@ -238,7 +246,7 @@ gdp_china <- 14.7
 gdp_chinaa + 1      # typo in the name
 ```
 
-**2. `unexpected symbol` / `unexpected numeric constant` / `unexpected ','`**: the syntax is wrong, often a missing comma, quote or parenthesis. R tells you which element it did not expect (here the `2`, at line 1, character 5), so the mistake is just *before* it: the comma missing after the `1`.
+**2. `unexpected symbol` / `unexpected numeric constant` / `unexpected ','`**: the syntax is wrong, often a missing comma, quote or parenthesis. R tells you which element it did not expect (here the `2`), so the mistake is just *before* it: the comma missing after the `1`. In the console the message reads `unexpected numeric constant in "c(1 2"`; this page formats it differently.
 
 ```{r}
 #| error: true
@@ -256,7 +264,7 @@ Method: (1) read the message aloud, (2) find the line, (3) check spelling, comma
 
 ## Vectors {#sec-vectors}
 
-≈ 30 min. A **vector** is an ordered list of values of the *same type*. It is the building block of R: a column of a data set is a vector.
+≈ 25 min. A **vector** is an ordered list of values of the *same type*. It is the building block of R: a column of a data set is a vector.
 
 ```{r}
 population <- c(331, 1411, 1380)             # numeric
@@ -312,7 +320,7 @@ sum(is.na(gini))           # how many missing values
 
 ## Data frames and tibbles {#sec-dataframes}
 
-≈ 30 min. A **data frame** is a table: each column is a vector, all of the same length. A **tibble** is the tidyverse version of a data frame, with a cleaner display. We will use tibbles throughout.
+≈ 25 min. A **data frame** is a table: each column is a vector, all of the same length. A **tibble** is the tidyverse version of a data frame, with a cleaner display. We will use tibbles throughout.
 
 Our common thread starts here: three countries, with **rounded 2020 values** (GDP in current US$ billions, population in millions; approximate figures for teaching, from the World Bank WDI).
 
@@ -378,9 +386,21 @@ countries3[order(countries3$gdp_pc, decreasing = TRUE), c("country", "gdp_pc")]
 
 The US produces about six times more per person than China and about thirty-three times more than India (rounded 2020 values, current US$, so not adjusted for price differences between countries). Starting from session 2, we use the full World Bank data set with all countries.
 
+## The pipe `|>` {#sec-pipe}
+
+≈ 5 min. The **pipe** `|>` passes the result on its left as the first argument of the function on its right. Code reads left to right, like a recipe:
+
+```{r}
+sqrt(sum(c(1, 4, 9)))          # nested: read from the inside out
+
+c(1, 4, 9) |> sum() |> sqrt()  # piped: "take c(1, 4, 9), then sum, then sqrt"
+```
+
+Same result. From session 2 on, most of our code uses the pipe (shortcut `Ctrl/Cmd + Shift + M`).
+
 ## Exercises {#sec-exercises}
 
-≈ 35 min.
+≈ 25 min. Do 1.1 to 1.5 in class; 1.6 and 1.7 are for homework or if you finish early.
 
 ::: {.callout-tip}
 ## Exercise 1.1
@@ -457,7 +477,7 @@ gdp_growth <- c(2.3, 5.1, NA, 3.8, -0.4)
 mean(gdp_growth)                 # NA
 mean(gdp_growth, na.rm = TRUE)   # 2.7
 
-# Careful: comparing with NA gives NA, so use na.rm-style logic
+# Careful: comparing NA with 2 gives NA, so remove the NA first
 gdp_growth[!is.na(gdp_growth) & gdp_growth > 2]
 ```
 :::
@@ -523,5 +543,6 @@ countries3[order(countries3$gdp_share, decreasing = TRUE),
 - Read errors calmly: *object not found* (typo), *unexpected symbol* (syntax), *could not find function* (typo or package not loaded). `?function` opens the help page.
 - Operations on vectors are vectorised; `NA` is contagious, so use `na.rm = TRUE` knowingly.
 - A data frame is a set of vectors of equal length: `data$col`, `data[rows, cols]`. GDP per capita = GDP / population.
+- The pipe `|>` feeds the result of one step into the next: `x |> f() |> g()`.
 
 Next: [Session 2: Importing and exporting data](seance-2.qmd).

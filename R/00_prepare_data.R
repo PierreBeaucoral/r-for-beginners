@@ -80,7 +80,8 @@ write_csv(wid, here("data", "wid_gini.csv"))
 zip_path <- here("data.zip")
 if (file.exists(zip_path)) file.remove(zip_path)
 fichiers <- c(list.files(here("data"), pattern = "\\.csv$", full.names = TRUE),
-              list.files(here("data", "raw"), full.names = TRUE))
+              list.files(here("data", "raw"), full.names = TRUE),
+              here("R", "theme_cours.R"))   # shared ggplot theme used by sessions
 zip::zip(zip_path, files = sub(paste0(here(), "/"), "", fichiers, fixed = TRUE),
          root = here())   # relative paths in the archive, no setwd()
 

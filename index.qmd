@@ -64,9 +64,31 @@ We start with three countries (United States, China, India), then move to all co
 
 1. Install **R**: <https://cran.r-project.org/>.
 2. Install **RStudio Desktop**: <https://posit.co/download/rstudio-desktop/> (after R).
-3. Download **[data.zip](data.zip)**, the course data.
-4. In RStudio: *File > New Project > New Directory* to create a project folder, then **unzip `data.zip` into that folder**. The `data/` folder must sit next to the `.Rproj` file so that `here::here()` finds your files.
+3. In RStudio: *File > New Project > New Directory* and create a project folder named `r-course`.
+4. Download **[data.zip](data.zip)** and unzip it **into the `r-course` folder**, so that `data/` and `R/theme_cours.R` sit next to the `.Rproj` file (`here::here()` relies on this).
+5. Install the packages: paste the block below in the RStudio **Console** and run it **once**. It takes a few minutes.
 :::
+
+```r
+install.packages(c("tidyverse", "here", "janitor", "readxl", "writexl",
+                   "lubridate", "scales", "WDI", "gt", "fixest",
+                   "modelsummary", "ggrepel", "sf", "rnaturalearth",
+                   "rnaturalearthdata", "patchwork", "plotly", "crosstalk",
+                   "shiny"))
+```
+
+Expected folder tree:
+
+```
+r-course/
+├── r-course.Rproj
+├── data/
+│   ├── wdi_panel.csv
+│   ├── ...
+│   └── raw/
+└── R/
+    └── theme_cours.R
+```
 
 ## How to use this site
 
@@ -81,4 +103,4 @@ AI assistants can explain an error message or an unfamiliar function. They must 
 
 ---
 
-Open licence; see the GitHub repository for reuse conditions. Last updated: October 2026.
+Content licensed [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/), like pierrebeaucoral.github.io. Last updated: October 2026.

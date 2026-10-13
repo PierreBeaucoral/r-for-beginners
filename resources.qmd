@@ -26,7 +26,7 @@ These resources do not replace the sessions: use them to go deeper, get help or 
 
 ## Development data
 
-- **World Development Indicators** (World Bank), via the `WDI` package: <https://databank.worldbank.org/source/world-development-indicators>.
+- **World Development Indicators** (World Bank), via the [`WDI` package](https://cran.r-project.org/package=WDI) (databank: [World Development Indicators](https://databank.worldbank.org/source/world-development-indicators)).
 - **World Inequality Database (WID)**: income and wealth inequality, <https://wid.world/>.
 - **Our World in Data**: open data and charts, <https://ourworldindata.org/>.
 

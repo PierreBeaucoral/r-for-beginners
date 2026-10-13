@@ -12,7 +12,6 @@ library(scales)
 library(gt)
 library(fixest)
 library(modelsummary)
-library(broom)
 
 source(here::here("R", "theme_cours.R"))
 set.seed(2024)   # the only random draw of the page: simulated scatterplots
@@ -25,13 +24,15 @@ Session objectives
 - Build a clean summary table with `gt`.
 - Compute and interpret a correlation, and know what it cannot tell you.
 - Estimate and read a simple and a multiple regression (`fixest::feols`, robust standard errors, `modelsummary`).
-- Run a two-group t-test and interpret the p-value and the confidence interval.
 - Recognise why pooling years of a few countries produces misleading statistics.
+- Optional / homework: run a two-group t-test and interpret the p-value and the confidence interval.
 :::
+
+**Packages used today:** `tidyverse`, `here`, `scales`, `gt`, `fixest`, `modelsummary`. If one is missing: `install.packages(c("tidyverse", "here", "scales", "gt", "fixest", "modelsummary"))`.
 
 **Running question:** *Growth, health and inequality: what do the data say about developing countries?* Today, how are income and life expectancy related across countries?
 
-## 1. One year, one row per country (≈ 20 min)
+## 1. One year, one row per country (≈ 15 min)
 
 Sessions 1 and 2 used three countries. Statistics need many units, so we now use **all countries**. Each statistical method below assumes that one row = one unit. We therefore work on a **cross-section**: one year, one row per country.
 
@@ -54,10 +55,10 @@ wdi |>
   ) |>
   gt() |>
   tab_header(title = "Number of countries with non-missing data") |>
-  tab_source_note("Source: World Bank, WDI. Countries only (aggregates removed).")
+  tab_source_note("Source: World Bank, World Development Indicators (WDI). Countries only (aggregates removed).")
 ```
 
-**We use 2019.** It is the last year before COVID-19 (which cut life expectancy in 2020-21 and distorts both income and health), and coverage is already at its maximum for GDP per capita and life expectancy. The Gini index is the weak point: it is only measured in some countries each year.
+**We use 2019.** It is the last year before COVID-19 (which cut life expectancy in 2020-21 and distorts both income and health), and coverage is already at its maximum for GDP per capita and life expectancy. (Sessions 5 and 6 use 2022 instead: they show recent values, and 2022 is the latest year with good coverage.) The Gini index is the weak point: it is only measured in some countries each year.
 
 ```{r}
 #| label: cs
@@ -75,7 +76,7 @@ n_cs
 
 Our working sample has **`r n_cs` countries**. Always report N.
 
-## 2. Describing one variable (≈ 40 min)
+## 2. Describing one variable (≈ 40 min, including Exercise 4.1)
 
 ### Centre and spread
 
@@ -105,18 +106,20 @@ summary(cs$gdp_pc_ppp)
 
 Look at GDP per capita: the mean (`r label_dollar()(round(mean(cs$gdp_pc_ppp)))`) is well above the median (`r label_dollar()(round(median(cs$gdp_pc_ppp)))`). A few rich countries pull the mean up. The distribution is **right-skewed**.
 
+*Preview: `ggplot` is taught in Session 5 and `gt` tables are only a formatting step. For now, copy the patterns and focus on the statistics.*
+
 ```{r}
 #| label: fig-hist
 #| fig-width: 8
-#| fig-height: 4.5
+#| fig-height: 5
 #| fig-cap: "GDP per capita is highly skewed; its logarithm is roughly symmetric."
 cs |>
-  transmute(
-    `GDP per capita (2021 PPP $)`     = gdp_pc_ppp,
-    `Log of GDP per capita`           = log_gdp_pc
-  ) |>
+  select(gdp_pc_ppp, log_gdp_pc) |>
   pivot_longer(everything(), names_to = "variable", values_to = "value") |>
-  mutate(variable = fct_inorder(variable)) |>
+  # factor(): fix the panel order and give each variable a readable label
+  mutate(variable = factor(variable,
+                           levels = c("gdp_pc_ppp", "log_gdp_pc"),
+                           labels = c("GDP per capita (2021 PPP $)", "Log of GDP per capita"))) |>
   ggplot(aes(value)) +
   geom_histogram(bins = 25, fill = pal_cours[["principal"]], colour = "white") +
   facet_wrap(~ variable, scales = "free_x") +
@@ -124,11 +127,9 @@ cs |>
   labs(
     title = "Most countries are poor; a few are very rich",
     x = NULL, y = "Number of countries",
-    caption = paste0("Source: World Bank, WDI, 2019. N = ", n_cs, " countries.")
+    caption = paste0("Source: World Bank, World Development Indicators (WDI), 2019. N = ", n_cs, " countries.")
   )
 ```
-
-(`transmute()` is used only inside this plot-preparation step to keep two columns; `select()` plus `mutate()` would work as well.)
 
 **Why logs?** A log turns *multiplicative* differences into *additive* ones: going from \$1,000 to \$2,000 is the same step as from \$20,000 to \$40,000 (+100%). Income gaps between countries are better thought of in percentages than in dollars. The log is also what makes the relationship with life expectancy close to linear (Section 4).
 
@@ -152,7 +153,7 @@ cs |>
 ```{r}
 #| label: fig-box
 #| fig-width: 8
-#| fig-height: 4.5
+#| fig-height: 5
 #| fig-cap: "Life expectancy by World Bank income group, 2019. The box spans the 25th to 75th percentile, the line is the median."
 ggplot(cs, aes(income, life_exp)) +
   geom_boxplot(fill = "grey90", colour = pal_cours[["principal"]], outlier.shape = NA) +
@@ -160,7 +161,7 @@ ggplot(cs, aes(income, life_exp)) +
   labs(
     title = "Richer countries live longer, with less dispersion",
     x = NULL, y = "Life expectancy at birth (years)",
-    caption = paste0("Source: World Bank, WDI, 2019. N = ", n_cs, " countries.")
+    caption = paste0("Source: World Bank, World Development Indicators (WDI), 2019. N = ", n_cs, " countries.")
   )
 ```
 
@@ -194,7 +195,7 @@ cs |>
   fmt_currency(c(gdp_mean, gdp_median), decimals = 0) |>
   fmt_number(c(le_mean, le_sd), decimals = 1) |>
   tab_header(title = "Income and life expectancy by region, 2019") |>
-  tab_source_note("Source: World Bank, WDI. One observation per country; N = number of countries. Regions are World Bank categories.")
+  tab_source_note("Source: World Bank, World Development Indicators (WDI). One observation per country; N = number of countries. Regions are World Bank categories.")
 ```
 
 ::: {.callout-tip}
@@ -215,12 +216,15 @@ elec |>
   gt() |>
   fmt_number(c(mean, median), decimals = 1) |>
   tab_header(title = "Access to electricity (% of population), 2019") |>
-  tab_source_note("Source: World Bank, WDI. N = number of countries with data.")
+  tab_source_note("Source: World Bank, World Development Indicators (WDI). N = number of countries with data.")
+
+low <- elec |> filter(income == "Low income")
+c(mean = mean(low$elec_access), median = median(low$elec_access))
 ```
-The median is above the mean in the low-income group: access is very unequal, a few countries with very low access pull the mean down (left-skewed distribution).
+In the low-income group the median (`r round(median(low$elec_access), 1)`%) is below the mean (`r round(mean(low$elec_access), 1)`%): a few countries with high access pull the mean up, so the distribution is right-skewed. Access is very unequal even among poor countries.
 :::
 
-## 3. Correlation (≈ 30 min)
+## 3. Correlation (≈ 30 min, including Exercise 4.2)
 
 The correlation coefficient measures the strength of the **linear** association between two variables:
 
@@ -249,6 +253,7 @@ sim <- bind_rows(
   group_by(panel) |>
   mutate(r = cor(x, y)) |>
   ungroup() |>
+  # fct_inorder(): keep the panels in their order of appearance, not alphabetical
   mutate(panel = fct_inorder(paste0(panel, " (r = ", sprintf("%.2f", r), ")")))
 
 ggplot(sim, aes(x, y)) +
@@ -304,13 +309,13 @@ cs |>
     title = "Life expectancy rises with electricity access, but the link bends",
     x = "Access to electricity (% of population)",
     y = "Life expectancy at birth (years)",
-    caption = "Source: World Bank, WDI, 2019."
+    caption = "Source: World Bank, World Development Indicators (WDI), 2019."
   )
 ```
 Most countries are near 100% access; the relationship is steep only at low access, so a single straight line is a rough summary. This is a feature of the data (a ceiling), not an error.
 :::
 
-## 4. Simple regression (≈ 45 min)
+## 4. Simple regression (≈ 40 min, including Exercise 4.3)
 
 Correlation is symmetric and unit-free. A regression gives a **slope in the units of the data**:
 
@@ -318,7 +323,13 @@ $$
 \text{life\_exp}_i = \alpha + \beta \, \ln(\text{GDP pc}_i) + \varepsilon_i .
 $$
 
-OLS chooses $\alpha, \beta$ to minimise the sum of squared residuals $\sum_i \hat{\varepsilon}_i^2$. We use `fixest::feols()`, with heteroskedasticity-robust standard errors (`vcov = "hetero"`), which is the default choice in applied work.
+OLS chooses $\alpha, \beta$ to minimise the sum of squared residuals $\sum_i \hat{\varepsilon}_i^2$.
+
+**Three things to know before the code.**
+
+- **Formulas.** R writes a model as `y ~ x1 + x2`: the outcome on the left of `~`, the explanatory variables on the right, separated by `+`. The intercept is added automatically.
+- **`lm()` vs `feols()`.** `lm()` is base R and gives the same coefficients. We use `fixest::feols()` because it handles standard errors more conveniently and extends to the fixed-effects models you will meet later.
+- **`vcov = "hetero"`** asks for heteroskedasticity-robust standard errors: they stay valid when the spread of the errors differs across countries, which is the usual case. It changes the standard errors, not the coefficients. It does **not** fix omitted-variable bias or reverse causality: those are problems of the model, not of the standard errors.
 
 ```{r}
 #| label: m1
@@ -354,7 +365,7 @@ ggplot(cs, aes(gdp_pc_ppp, life_exp)) +
     title = "Richer countries have longer life expectancy",
     x = "GDP per capita (2021 PPP $, log scale)",
     y = "Life expectancy at birth (years)",
-    caption = paste0("Source: World Bank, WDI, 2019. N = ", n_cs, " countries.")
+    caption = paste0("Source: World Bank, World Development Indicators (WDI), 2019. N = ", n_cs, " countries.")
   )
 ```
 
@@ -376,7 +387,7 @@ r2(m_el, "r2")
 The slope is the difference in life expectancy (years) associated with one more percentage point of the population having electricity access. N is the number of countries with non-missing `elec_access`. Worries: omitted variables (income, institutions, health spending drive both), reverse causality (healthier, richer societies electrify), and non-linearity (ceiling at 100%).
 :::
 
-## 5. Multiple regression (≈ 40 min)
+## 5. Multiple regression (≈ 40 min, including Exercise 4.4)
 
 Is the income-health relationship just a proxy for something else? Add controls:
 
@@ -393,6 +404,8 @@ tibble(sample = c("All countries", "With Gini"), N = c(n_cs, n_gini))
 ```
 
 N falls from `r n_cs` to `r n_gini`. Adding the Gini therefore changes **two things at once**: the specification *and* the sample. To compare fairly, we also re-estimate the simple model on the sample with Gini.
+
+`relevel()` sets the **reference category** of the region dummies: coefficients on the other regions are differences relative to Sub-Saharan Africa.
 
 ```{r}
 #| label: m-multi
@@ -425,28 +438,33 @@ modelsummary(
   title = "Life expectancy, 2019 cross-section (OLS)",
   notes = c("Dependent variable: life expectancy at birth (years). Heteroskedasticity-robust standard errors in parentheses.",
             "Region reference category: Sub-Saharan Africa. * p < 0.1, ** p < 0.05, *** p < 0.01.",
-            "Source: World Bank, WDI, 2019. Columns (2)-(4) use only countries with a Gini index.")
+            "Source: World Bank, World Development Indicators (WDI), 2019. Columns (2)-(4) use only countries with a Gini index.")
 )
 ```
 
 ```{r}
 #| label: coefs-numbers
-b <- map_dbl(list(m1, m2, m3, m4), \(m) coef(m)[["log_gdp_pc"]]) |> round(2)
-bg <- coef(m3)[["gini"]]
+b <- round(c(coef(m1)[["log_gdp_pc"]], coef(m2)[["log_gdp_pc"]],
+             coef(m3)[["log_gdp_pc"]], coef(m4)[["log_gdp_pc"]]), 2)
+bg  <- coef(m3)[["gini"]]
 bg4 <- coef(m4)[["gini"]]
+se3 <- se(m3)[["gini"]]
+p3  <- pvalue(m3)[["gini"]]
+p4  <- pvalue(m4)[["gini"]]
 ```
 
-How to read it:
+How to read it (the table above has all the numbers):
 
-- Column (1) to (2): the GDP coefficient moves from `r b[1]` to `r b[2]` just from the **change of sample** (N = `r nobs(m1)` vs `r nobs(m2)`). Sample composition matters.
-- Column (3): conditional on income, the Gini coefficient is `r round(bg, 3)`: a 1-point higher Gini is associated with that many years of life expectancy, holding log GDP per capita constant. The GDP coefficient is `r b[3]`.
-- Column (4): with region dummies, the income coefficient drops to `r b[4]` and the Gini coefficient to `r round(bg4, 3)`. Part of the income-health gradient is **between** regions (e.g. Sub-Saharan Africa is both poor and has low life expectancy for reasons that include disease burden).
+- Columns (1) and (2) give the same kind of estimate on two samples: the GDP coefficient is `r b[1]` with all countries and `r b[2]` with the countries that have a Gini (N = `r nobs(m1)` vs `r nobs(m2)`). Sample composition matters.
+- Column (3): adding the Gini barely moves the GDP coefficient (`r b[2]` to `r b[3]`). The Gini coefficient is `r round(bg, 3)` (robust SE `r round(se3, 3)`, p = `r round(p3, 2)`): a 10-point higher Gini goes with about `r round(10 * bg, 2)` years of life expectancy, holding income constant. That is small, and statistically indistinguishable from zero.
+- Column (4): with region dummies the GDP coefficient is `r b[4]` and the Gini coefficient `r round(bg4, 3)` (p = `r round(p4, 2)`), again small and not significant. The income gradient survives the controls; it is not simply a regional effect.
 
 Each coefficient is "the difference associated with a one-unit change, **holding the other included variables fixed**". These are **associations, not causal effects**:
 
 - **Omitted variables:** institutions, health systems, education, climate and conflict affect both income and health.
 - **Reverse causality:** healthier populations are more productive, so health may raise income as well as the opposite.
 - **Measurement and selection:** the Gini is available for a non-random subset of countries.
+- **Not independent draws:** neighbouring countries share climate, history and institutions, so observations are correlated within regions. And our 2019 countries are close to the whole population of countries, not a random sample of it, so read p-values as a rough guide to noise, not as exact probabilities.
 
 ::: {.callout-tip}
 ## Exercise 4.4
@@ -463,9 +481,24 @@ summary(m_ctrl)
 Electricity access is itself strongly correlated with income, and also with life expectancy. Part of what the income coefficient captured in Model (1) is now attributed to access, so the income coefficient shrinks. N may also differ if `elec_access` has missing values: check `nobs(m_ctrl)` against `nobs(m1)`.
 :::
 
-## 6. Hypothesis testing (≈ 30 min)
+## 6. Why not pool years? (≈ 10 min)
 
-Question: is life expectancy different in Sub-Saharan Africa than elsewhere? One observation per country, one year: **the unit of observation is the country**, and countries are (approximately) independent draws.
+::: {.callout-warning}
+## Pooling years of a few countries does not give independent observations
+
+A common mistake: regress GDP on year, or test "Asia vs America", using 21 years for each of three countries. Two problems:
+
+1. **Non-independence.** The 21 observations of China are the same country, strongly correlated from one year to the next. 63 country-years from 3 countries is not a sample of size 63: observations of the same country are far from independent. Standard errors, t-tests and p-values were therefore far too optimistic.
+2. **Spurious regression.** Any two series that trend upward over time (GDP, population, CO2, the number of smartphones) are strongly correlated, whatever the causal link. A high $R^2$ between two trending series is the default outcome, not evidence.
+
+A failed join can also silently drop a country (the US in the Session 3 example), so **always check N and join keys** (`anti_join()`, Session 3). The fixes used today: a cross-section (one row per country), N reported everywhere, and, for panels, methods designed for them (fixed effects, clustered standard errors), which you will meet in a more advanced course.
+:::
+
+## 7. Optional / homework: hypothesis testing and a model table (≈ 30 min)
+
+This section is not needed for the next sessions. Do it at home or if you finish early.
+
+Question: is life expectancy different in Sub-Saharan Africa than elsewhere? One observation per country, one year: **the unit of observation is the country**, and countries are not strictly independent draws (see Section 5).
 
 ```{r}
 #| label: ttest-data
@@ -530,23 +563,10 @@ modelsummary(
   stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
   gof_map = c("nobs", "r.squared"),
   notes = c("Dependent variable: life expectancy (years). Robust standard errors in parentheses.",
-            "* p < 0.1, ** p < 0.05, *** p < 0.01. Source: World Bank, WDI, 2019.")
+            "* p < 0.1, ** p < 0.05, *** p < 0.01. Source: World Bank, World Development Indicators (WDI), 2019.")
 )
 ```
 In (a), the group labelled "High income" is the first in the output only alphabetically; read the two means carefully to get the sign of the gap right.
-:::
-
-## 7. Why the old example was wrong (≈ 10 min)
-
-::: {.callout-warning}
-## Pooling years of a few countries does not give independent observations
-
-An earlier version of this course regressed GDP on year, and tested "Asia vs America", using 21 years for each of three countries. Two problems:
-
-1. **Non-independence.** The 21 observations of China are the same country, strongly correlated from one year to the next. 63 country-years from 3 countries is not a sample of size 63; the effective sample is closer to 3. Standard errors, t-tests and p-values were therefore far too optimistic.
-2. **Spurious regression.** Any two series that trend upward over time (GDP, population, CO2, the number of smartphones) are strongly correlated, whatever the causal link. A high $R^2$ between two trending series is the default outcome, not evidence.
-
-A failed join also silently dropped the United States in a multiple regression (N = 42 instead of 63), producing a meaningless coefficient: **always check N and join keys** (`anti_join()`, Session 3). The fixes used today: a cross-section (one row per country), N reported everywhere, and, for panels, methods designed for them (fixed effects, clustered standard errors), which you will meet in a more advanced course.
 :::
 
 ## Key takeaways

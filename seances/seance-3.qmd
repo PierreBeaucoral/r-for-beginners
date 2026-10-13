@@ -1,5 +1,5 @@
 ---
-title: "Session 3: Data manipulation"
+title: "Session 3: Data manipulation (dplyr, tidyr, joins)"
 subtitle: "dplyr, tidyr and joins: from a raw table to the table you need"
 ---
 
@@ -11,7 +11,10 @@ Session objectives
 - Handle missing values explicitly and always report the number of observations (N).
 - Reshape a table between wide and long format with `tidyr`.
 - Combine tables with joins, and detect a join that silently loses observations.
+
 :::
+
+**Packages used today:** `tidyverse`, `here`. If one is missing: `install.packages(c("tidyverse", "here"))`.
 
 ```{r}
 #| label: setup
@@ -31,7 +34,7 @@ glimpse(wdi)
 
 Each row is a country-year: `r n_distinct(wdi$iso3c)` countries, `r n_distinct(wdi$year)` years, `r nrow(wdi)` rows.
 
-## The pipe and the main verbs (≈ 45 min)
+## The pipe and the main verbs (≈ 35 min)
 
 ### The pipe `|>`
 
@@ -49,7 +52,7 @@ wdi |>
 ```
 
 ::: {.callout-note}
-Older code (including the first version of this course) uses the `%>%` pipe from the `magrittr` package. It does almost the same thing. Both work; in this course we use the native `|>`.
+Older code online uses the `%>%` pipe from the `magrittr` package. It does almost the same thing. Both work; in this course we use the native `|>`.
 :::
 
 ### `filter()`: keep rows
@@ -103,12 +106,13 @@ wdi |>
   head(3)
 ```
 
-To keep **only** the new columns (what `transmute()` used to do; it is now superseded), use `.keep = "none"`:
+To keep only some columns afterwards, add a `select()` step:
 
 ```{r}
 wdi |>
   filter(year == 2020) |>
-  mutate(country, gdp_bn = gdp / 1e9, .keep = "none") |>
+  mutate(gdp_bn = gdp / 1e9) |>
+  select(country, gdp_bn) |>
   head(3)
 ```
 
@@ -141,7 +145,7 @@ wdi_2020 |> count(elec_level)
 
 `count()` is a shortcut for "group and count the rows". We come back to it below.
 
-## Summarising by group, and missing values (≈ 40 min)
+## Summarising by group, and missing values (≈ 30 min)
 
 ### `group_by()` + `summarise()`
 
@@ -227,7 +231,7 @@ wdi |>
 wdi |> filter(year == 2020) |> count(income, sort = TRUE)
 ```
 
-## Factors: giving categories an order (≈ 15 min)
+## Factors: giving categories an order (≈ 10 min)
 
 R sorts text alphabetically, which is rarely what we want. Income groups have a natural order. A **factor** is a variable with a fixed, ordered list of categories (its `levels`).
 
@@ -248,6 +252,8 @@ Now the table follows the economic order and not the alphabet. Other tools from 
 - `fct_relevel(x, "High income")` moves one level to the front without retyping all of them.
 - `fct_reorder(x, y)` orders the levels of `x` by the values of `y`. This is what makes bar charts readable (Session 5).
 
+*Preview: `ggplot` is taught in Session 5. For now, just copy the pattern.*
+
 ```{r}
 #| fig-width: 8
 #| fig-height: 5
@@ -264,7 +270,7 @@ wdi |>
 
 Without `fct_reorder()`, the bars would be in alphabetical order and the message would be harder to read.
 
-## Reshaping with tidyr: wide and long (≈ 30 min)
+## Reshaping with tidyr: wide and long (≈ 25 min)
 
 ### Tidy data in three rules
 
@@ -315,7 +321,7 @@ life_back
 all.equal(as.data.frame(life_back), as.data.frame(life_long))
 ```
 
-## Joins: combining two tables (≈ 40 min)
+## Joins: combining two tables (≈ 35 min)
 
 Real projects use several sources: GDP from the World Bank, inequality from WID, trade from the OECD. A **join** adds to table `x` the columns of table `y`, matching rows on a **key** (one or several columns).
 
@@ -357,8 +363,9 @@ We want to add inequality data from the World Inequality Database (WID) to GDP f
 gdp3 <- read_csv(here("data", "wdi_3countries.csv"), show_col_types = FALSE)
 wid  <- read_csv(here("data", "wid_gini.csv"), show_col_types = FALSE)
 
-gdp3 |> slice(1, 22, 43)
-wid  |> slice(1, 22, 43)
+# first row of each country
+gdp3 |> arrange(country, year) |> distinct(country, .keep_all = TRUE)
+wid  |> arrange(country_wid, year) |> distinct(country_wid, .keep_all = TRUE)
 ```
 
 The natural idea: both tables have a country column, so join on it. (WID calls it `country_wid`, so we tell `by` that the two names are equivalent.)
@@ -377,8 +384,8 @@ naive |>
 No error, no warning, the right number of rows. And yet **the United States has no Gini at all**. Why? WDI writes "United States", WID writes "USA": the two strings differ, so no row matches, and `left_join()` fills with `NA`.
 
 ::: {.callout-important}
-## This exact bug was in an earlier version of this course
-The first version of the course joined these two tables by country name. The US silently lost its Gini and nobody noticed, because R raised nothing. A join never complains about unmatched keys. **You** must check.
+## A common mistake
+Joining two sources by country name: the US silently loses its Gini and nobody notices, because R raises nothing. A join never complains about unmatched keys. **You** must check.
 :::
 
 Two checks that would have caught it:
@@ -430,7 +437,7 @@ gdp3 |>
 
 Do not ignore that warning: it almost always means the key is incomplete (here, `year` was forgotten).
 
-## Exercises (≈ 40 min)
+## Exercises (≈ 45 min)
 
 The following exercises use the panel `wdi`.
 

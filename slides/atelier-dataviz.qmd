@@ -111,14 +111,14 @@ Deux zones simulées, **même revenu moyen**, mais des sociétés très différe
 # Zone A : unimodale. Zone B : bimodale (deux groupes). Moyennes alignées par construction.
 set.seed(1)
 n <- 4000
-sdl <- c(0.25, 0.18)
-mB_theo <- 0.5 * (exp(10.4 + sdl[2]^2 / 2) + exp(11.0 + sdl[2]^2 / 2))
+sdl <- c(0.25, 0.12)
+mB_theo <- 0.5 * (exp(10.3 + sdl[2]^2 / 2) + exp(11.1 + sdl[2]^2 / 2))
 mlA <- log(mB_theo) - sdl[1]^2 / 2   # meanlog de A tel que E[A] = E[B]
 
 df_dist <- tibble(
   zone = rep(c("Zone A", "Zone B"), each = n),
   revenu = c(rlnorm(n, mlA, sdl[1]),
-             rlnorm(n / 2, 10.4, sdl[2]), rlnorm(n / 2, 11.0, sdl[2]))
+             rlnorm(n / 2, 10.3, sdl[2]), rlnorm(n / 2, 11.1, sdl[2]))
 )
 moy <- df_dist |> summarise(moyenne = mean(revenu), .by = zone)
 rel_gap <- abs(diff(moy$moyenne)) / mean(moy$moyenne)
@@ -135,13 +135,14 @@ ggplot(df_dist, aes(revenu, fill = zone, colour = zone)) +
   geom_vline(xintercept = mean(moy$moyenne), linetype = "dashed", colour = "grey20") +
   annotate("label", x = mean(moy$moyenne), y = 1.5 * dmax, hjust = 0.5, size = 6.5,
            label = paste0("Moyenne des deux zones :\n",
-                          number(mean(moy$moyenne) / 1000, accuracy = 1), " k€"),
+                          number(mean(moy$moyenne) / 1000, accuracy = 1, decimal.mark = ",", big.mark = " "), " k€"),
            colour = "grey20", fill = "white", label.size = 0) +
   geom_text(data = lab_z, aes(x = x, y = y, label = lab, colour = zone), hjust = 0,
             inherit.aes = FALSE, fontface = "bold", size = 7) +
   scale_fill_manual(values = cols_z) +
   scale_colour_manual(values = cols_z) +
-  scale_x_continuous(labels = label_number(scale = 1e-3, suffix = " k€")) +
+  scale_x_continuous(breaks = seq(25000, 100000, 25000),
+                     labels = label_number(scale = 1e-3, suffix = " k€", decimal.mark = ",", big.mark = " ")) +
   scale_y_continuous(breaks = NULL, expand = expansion(mult = c(0, 0.05)), limits = c(0, 1.7 * dmax)) +
   guides(fill = "none", colour = "none") +
   labs(title = "Même revenu moyen, mais la zone B est coupée en deux groupes",
@@ -171,7 +172,7 @@ ggplot(df_dist, aes(revenu, fill = zone, colour = zone)) +
 
 ## Do / Don't n°2 : lisibilité et hiérarchie visuelle
 
-Deux règles : police **≥ 12 pt** une fois la figure collée ; **faire ressortir le signal, contexte en gris**.
+Deux règles : texte d'au moins **12 pt** à la taille finale ; **faire ressortir le signal, contexte en gris**.
 
 ```{r}
 #| label: ugly-vs-good
@@ -201,7 +202,7 @@ p_good <- ggplot(df_reg, aes(annee, chomage, group = region)) +
            fontface = "bold", size = 6, colour = pal_cours[["principal"]]) +
   annotate("text", x = 2012, y = 14.2, label = "Régions (contexte)", hjust = 0,
            size = 5, colour = "grey45") +
-  scale_y_continuous(labels = label_number(suffix = " %"), limits = c(5, 14.8)) +
+  scale_y_continuous(labels = label_number(suffix = " %", decimal.mark = ",", big.mark = " "), limits = c(5, 14.8)) +
   scale_x_continuous(breaks = seq(2012, 2023, 3)) +
   labs(title = "Le chômage national recule de 3 points depuis 2016",
        x = NULL, y = "Taux de chômage",
@@ -223,7 +224,8 @@ df_elec <- wdi |>
   filter(country %in% names(pays), !is.na(elec_access)) |>
   mutate(pays = pays[country], signal = country == focus)
 fin <- df_elec |> filter(year == max(year)) |>
-  mutate(y_lab = case_when(country == "India" ~ 104, country == "Bangladesh" ~ 94, .default = elec_access))
+  mutate(y_lab = case_when(country == "India" ~ 104, country == "Bangladesh" ~ 94,
+                            country == "Nigeria" ~ 64, country == "Ethiopia" ~ 53, .default = elec_access))
 deb <- df_elec |> filter(country == focus, year == 2000)
 
 ggplot(df_elec, aes(year, elec_access, group = pays, colour = signal, linewidth = signal)) +
@@ -233,11 +235,11 @@ ggplot(df_elec, aes(year, elec_access, group = pays, colour = signal, linewidth 
   scale_colour_manual(values = c("TRUE" = pal_cours[["accent"]], "FALSE" = pal_cours[["gris"]])) +
   scale_linewidth_manual(values = c("TRUE" = 2, "FALSE" = 0.9)) +
   scale_x_continuous(breaks = seq(2000, 2020, 5), expand = expansion(mult = c(0.02, 0.2))) +
-  scale_y_continuous(labels = label_number(suffix = " %"), limits = c(0, 105), breaks = seq(0, 100, 25)) +
+  scale_y_continuous(labels = label_number(suffix = " %", decimal.mark = ",", big.mark = " "), limits = c(0, 105), breaks = seq(0, 100, 25)) +
   guides(colour = "none", linewidth = "none") +
   labs(title = "Le Bangladesh a presque généralisé l'accès à l'électricité",
        x = NULL, y = "Accès à l'électricité (%)",
-       caption = "Source : Banque mondiale, WDI (EG.ELC.ACCS.ZS).")
+       caption = "Source : Banque mondiale, World Development Indicators (WDI), 2023.")
 ```
 
 ## Autonomie : une figure doit « tenir debout » seule
@@ -325,7 +327,7 @@ Choisissez **un indicateur** et **une comparaison** pertinente pour votre sujet 
 -   **Tendance** (avant / après, 10 ans)
 -   **Comparaison** (régions, groupes, quintiles)
 -   **Distribution** (inégalités, hétérogénéité)
--   **Effet estimé** (avec IC), déconseillé
+-   **Effet estimé** (avec IC), déconseillé pour un premier exercice
 
 **Livrable** : 1 figure exportée en **PNG** ou **PDF**, avec titre-message, axes, unités, source.
 
