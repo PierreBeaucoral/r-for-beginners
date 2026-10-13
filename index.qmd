@@ -1,0 +1,84 @@
+---
+title: "R for data analysis"
+subtitle: "Beginner course · Master GPE (CERDI / IHEDD)"
+description: "Six sessions to learn R: import, manipulate, describe, visualise and report development data."
+---
+
+This course is for **Master GPE** students (development economics). There are **no prerequisites**: we start from zero, install R, write our first lines of code, and finish with a reproducible report.
+
+One development question runs through all six sessions, the **common thread** of the course:
+
+> **Growth, health and inequality: what does the data say about developing countries?**
+
+We start with three countries (United States, China, India), then move to all countries in the world using World Bank data. The last session ends with a figure for a "briefing note to the minister".
+
+```{=html}
+<div class="grid-cards">
+<a class="card-tile" href="seances/seance-1.html">
+<span class="tag">Session 1</span>
+<h3>Getting started with R and RStudio</h3>
+<p>Interface, objects, functions, packages, RStudio projects and paths with <code>here()</code>.</p>
+</a>
+<a class="card-tile" href="seances/seance-2.html">
+<span class="tag">Session 2</span>
+<h3>Importing and exporting data</h3>
+<p>CSV, Excel, malformed files; cleaning column names; saving your results.</p>
+</a>
+<a class="card-tile" href="seances/seance-3.html">
+<span class="tag">Session 3</span>
+<h3>Data manipulation</h3>
+<p><code>dplyr</code>, <code>tidyr</code>, joins: filter, transform, aggregate, merge sources.</p>
+</a>
+<a class="card-tile" href="seances/seance-4.html">
+<span class="tag">Session 4</span>
+<h3>Descriptive statistics and regression</h3>
+<p>Summarising data, correlations, linear regression and its limits.</p>
+</a>
+<a class="card-tile" href="seances/seance-5.html">
+<span class="tag">Session 5</span>
+<h3>Visualising with ggplot2 (and maps)</h3>
+<p>Grammar of graphics, scatter plots, time series, world maps.</p>
+</a>
+<a class="card-tile" href="seances/seance-6.html">
+<span class="tag">Session 6</span>
+<h3>Advanced visualisation and Quarto reports</h3>
+<p>Interactive charts, the final figure and a reproducible Quarto report.</p>
+</a>
+<a class="card-tile" href="slides/atelier-dataviz.html">
+<span class="tag">Workshop</span>
+<h3>Dataviz workshop (FR)</h3>
+<p>Slides, in French: building a good chart, from question to message.</p>
+</a>
+<a class="card-tile" href="resources.html">
+<span class="tag">Resources</span>
+<h3>Going further</h3>
+<p>Books, documentation, chart galleries and data sources.</p>
+</a>
+</div>
+```
+
+## Before the first session
+
+::: {.callout-important}
+## To do at home
+
+1. Install **R**: <https://cran.r-project.org/>.
+2. Install **RStudio Desktop**: <https://posit.co/download/rstudio-desktop/> (after R).
+3. Download **[data.zip](data.zip)**, the course data.
+4. In RStudio: *File > New Project > New Directory* to create a project folder, then **unzip `data.zip` into that folder**. The `data/` folder must sit next to the `.Rproj` file so that `here::here()` finds your files.
+:::
+
+## How to use this site
+
+- Every session follows the same plan: objectives, explanations with code, **exercises**, then "Key takeaways".
+- Type the code yourself in RStudio rather than copying it: that is how you learn.
+- **Solutions are collapsed**: try first, then open to compare.
+- An error is not a failure: read the message, it almost always says what is wrong.
+
+## AI and code
+
+AI assistants can explain an error message or an unfamiliar function. They must not replace your learning. **Always run the suggested code and understand every line** before using it: code that runs is not necessarily correct.
+
+---
+
+Open licence; see the GitHub repository for reuse conditions. Last updated: October 2026.

@@ -1,0 +1,36 @@
+---
+title: "Resources"
+subtitle: "Books, documentation, galleries and data sources to keep going"
+description: "Selected books, documentation, chart galleries and databases to extend the course."
+---
+
+These resources do not replace the sessions: use them to go deeper, get help or find data.
+
+## Learning R
+
+- **R for Data Science**, 2nd ed. (Wickham, Çetinkaya-Rundel, Grolemund): the tidyverse reference, <https://r4ds.hadley.nz/>.
+- **utilitR** (INSEE, in French): comprehensive collaborative documentation on R, <https://book.utilitr.org/>.
+- **Guide-R** (Joseph Larmarange, in French): data analysis for the social sciences, <https://larmarange.github.io/guide-R/>.
+
+## Visualisation
+
+- **ggplot2: Elegant Graphics for Data Analysis** (Wickham et al.): the official ggplot2 book, <https://ggplot2-book.org/>.
+- **Fundamentals of Data Visualization** (Claus Wilke): principles of good charts, <https://clauswilke.com/dataviz/>.
+- **The R Graph Gallery**: hundreds of examples with code, <https://r-graph-gallery.com/>.
+- **ColorBrewer** (<https://colorbrewer2.org/>) and **viridis** (<https://sjmgarnier.github.io/viridis/>): readable, colour-blind-safe palettes.
+
+## Quarto
+
+- Official documentation: <https://quarto.org/docs/guide/>.
+- Revealjs presentations: <https://quarto.org/docs/presentations/revealjs/>.
+
+## Development data
+
+- **World Development Indicators** (World Bank), via the `WDI` package: <https://databank.worldbank.org/source/world-development-indicators>.
+- **World Inequality Database (WID)**: income and wealth inequality, <https://wid.world/>.
+- **Our World in Data**: open data and charts, <https://ourworldindata.org/>.
+
+## Getting help
+
+- **Stack Overflow**: search the error message in quotes, <https://stackoverflow.com/questions/tagged/r>.
+- **Posit Community**: forum for the R/RStudio community, <https://forum.posit.co/>.

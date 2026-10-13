@@ -1,0 +1,73 @@
+project:
+  type: website
+  output-dir: docs
+  render:
+    - "*.qmd"
+    - "seances/*.qmd"
+    - "slides/*.qmd"
+  resources:
+    - data.zip
+
+lang: en
+
+website:
+  title: "R for data analysis: beginner level"
+  description: "Introductory R course for Master GPE students (CERDI / IHEDD): import, manipulate, describe, visualise and report development data."
+  site-url: "https://pierrebeaucoral.github.io/r-for-beginners/"
+  page-navigation: true
+  back-to-top-navigation: true
+  navbar:
+    background: primary
+    search: true
+    left:
+      - text: "Home"
+        href: index.qmd
+      - text: "Sessions"
+        menu:
+          - text: "1: Getting started with R and RStudio"
+            href: seances/seance-1.qmd
+          - text: "2: Importing and exporting data"
+            href: seances/seance-2.qmd
+          - text: "3: Data manipulation (dplyr, tidyr, joins)"
+            href: seances/seance-3.qmd
+          - text: "4: Descriptive statistics and regression"
+            href: seances/seance-4.qmd
+          - text: "5: Visualising with ggplot2 (and maps)"
+            href: seances/seance-5.qmd
+          - text: "6: Advanced visualisation and Quarto reports"
+            href: seances/seance-6.qmd
+      - text: "Dataviz workshop (FR)"
+        href: slides/atelier-dataviz.qmd
+      - text: "Resources"
+        href: resources.qmd
+    right:
+      - icon: github
+        href: https://github.com/PierreBeaucoral/r-for-beginners
+        aria-label: GitHub
+  page-footer:
+    left: "R for beginners · Master GPE (CERDI / IHEDD) · Pierre Beaucoral"
+    right: "Built with [Quarto](https://quarto.org)."
+
+format:
+  html:
+    theme:
+      - cosmo
+      - theme.scss
+    toc: true
+    toc-depth: 3
+    toc-title: "On this page"
+    number-sections: false
+    code-tools: false
+    code-fold: false
+    code-copy: true
+    code-overflow: wrap
+    fig-align: center
+    fig-cap-location: bottom
+    smooth-scroll: true
+    link-external-newwindow: true
+
+execute:
+  freeze: auto
+  warning: false
+  message: false
+  echo: true

@@ -1,0 +1,31 @@
+Package: rforbeginners
+Title: R for data analysis course site (beginners, Master GPE)
+Version: 1.0.0
+Description: R dependencies used by the site (for CI).
+Encoding: UTF-8
+Imports:
+    knitr,
+    rmarkdown,
+    here,
+    tidyverse,
+    readr,
+    readxl,
+    writexl,
+    openxlsx,
+    data.table,
+    janitor,
+    scales,
+    patchwork,
+    ggrepel,
+    sf,
+    rnaturalearth,
+    rnaturalearthdata,
+    fixest,
+    modelsummary,
+    gt,
+    plotly,
+    crosstalk,
+    shiny,
+    WDI,
+    zip,
+    lubridate

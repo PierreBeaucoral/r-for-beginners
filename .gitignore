@@ -1,0 +1,20 @@
+# Caches et intermédiaires Quarto/R
+/.quarto/
+.Rproj.user
+.Rhistory
+*_cache/
+*_files/
+.DS_Store
+**/*.quarto_ipynb
+
+# _freeze/ EST versionné (résultats R figés) : ne PAS l'ignorer.
+
+# Sortie rendue : construite et déployée par GitHub Actions
+/docs/
+
+# Artefacts de rendu en place et sorties d'exercices
+/*.html
+/seances/*.html
+/slides/*.html
+/Rplots.pdf
+output/

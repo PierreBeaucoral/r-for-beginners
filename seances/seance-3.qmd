@@ -1,0 +1,547 @@
+---
+title: "Session 3: Data manipulation"
+subtitle: "dplyr, tidyr and joins: from a raw table to the table you need"
+---
+
+::: {.objectifs}
+Session objectives
+
+- Chain operations with the pipe `|>` and use the main `dplyr` verbs: `filter`, `select`, `arrange`, `mutate`, `rename`, `summarise`.
+- Create variables with `case_when()` and `if_else()`; order categories with factors.
+- Handle missing values explicitly and always report the number of observations (N).
+- Reshape a table between wide and long format with `tidyr`.
+- Combine tables with joins, and detect a join that silently loses observations.
+:::
+
+```{r}
+#| label: setup
+Sys.setenv(LANGUAGE = "en")   # R messages in English
+library(tidyverse)   # dplyr, tidyr, forcats, ggplot2, readr...
+library(here)
+source(here("R", "theme_cours.R"))
+
+wdi <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
+```
+
+The question that runs through the course: **"Growth, health and inequality: what do the data say about developing countries?"** Today we use the World Bank panel (all countries, 2000-2023) and learn to cut it into the pieces we need.
+
+```{r}
+glimpse(wdi)
+```
+
+Each row is a country-year: `r n_distinct(wdi$iso3c)` countries, `r n_distinct(wdi$year)` years, `r nrow(wdi)` rows.
+
+## The pipe and the main verbs (≈ 45 min)
+
+### The pipe `|>`
+
+The pipe takes what is on its left and passes it as the **first argument** of the function on its right. Read it as "and then".
+
+```{r}
+# Without the pipe: read from the inside out
+head(arrange(filter(wdi, year == 2020), desc(life_exp)), 3)
+
+# With the pipe: read from top to bottom
+wdi |>
+  filter(year == 2020) |>
+  arrange(desc(life_exp)) |>
+  head(3)
+```
+
+::: {.callout-note}
+Older code (including the first version of this course) uses the `%>%` pipe from the `magrittr` package. It does almost the same thing. Both work; in this course we use the native `|>`.
+:::
+
+### `filter()`: keep rows
+
+`filter()` keeps the rows where the condition is `TRUE`. Several conditions separated by a comma mean "and"; use `|` for "or" and `%in%` for "one of".
+
+```{r}
+wdi |>
+  filter(year == 2020, region == "South Asia") |>
+  select(country, life_exp, gdp_pc_ppp)
+
+wdi |>
+  filter(year == 2020, iso3c %in% c("FRA", "DEU", "ESP")) |>
+  select(country, life_exp)
+```
+
+Comparison operators: `==` (equal; never a single `=`), `!=`, `<`, `<=`, `>`, `>=`.
+
+### `select()`: keep columns
+
+```{r}
+wdi |> select(country, year, life_exp) |> head(3)
+
+# Helpers: select columns by pattern or by type
+wdi |> select(country, starts_with("gdp")) |> head(3)
+wdi |> select(contains("_")) |> head(3)
+wdi |> select(where(is.numeric)) |> names()
+```
+
+`select(-gini)` drops a column. `select()` can also reorder: `select(iso3c, country, everything())`.
+
+### `arrange()`: sort rows
+
+```{r}
+wdi |>
+  filter(year == 2020) |>
+  arrange(desc(gdp_pc_ppp)) |>   # desc() = largest first
+  select(country, gdp_pc_ppp) |>
+  head(5)
+```
+
+### `mutate()` and `rename()`: create and rename columns
+
+```{r}
+wdi |>
+  filter(year == 2020) |>
+  mutate(gdp_bn = gdp / 1e9,                      # GDP in billions of US$
+         pop_m  = population / 1e6) |>            # population in millions
+  select(country, gdp_bn, pop_m) |>
+  arrange(desc(gdp_bn)) |>
+  head(3)
+```
+
+To keep **only** the new columns (what `transmute()` used to do; it is now superseded), use `.keep = "none"`:
+
+```{r}
+wdi |>
+  filter(year == 2020) |>
+  mutate(country, gdp_bn = gdp / 1e9, .keep = "none") |>
+  head(3)
+```
+
+`rename(new_name = old_name)` changes a column name:
+
+```{r}
+wdi |> rename(life_expectancy = life_exp) |> names()
+```
+
+### `if_else()` and `case_when()`: conditional variables
+
+`if_else(condition, value_if_true, value_if_false)` handles two cases; `case_when()` handles as many as you want. Conditions are tested **in order**; the first `TRUE` wins; `.default` catches the rest.
+
+```{r}
+wdi_2020 <- wdi |>
+  filter(year == 2020) |>
+  mutate(
+    high_life = if_else(life_exp >= 75, "75+ years", "under 75"),
+    elec_level = case_when(
+      elec_access >= 99 ~ "universal (99%+)",
+      elec_access >= 80 ~ "high (80-99%)",
+      elec_access >= 50 ~ "medium (50-80%)",
+      elec_access <  50 ~ "low (<50%)",
+      .default = "no data"
+    )
+  )
+
+wdi_2020 |> count(elec_level)
+```
+
+`count()` is a shortcut for "group and count the rows". We come back to it below.
+
+## Summarising by group, and missing values (≈ 40 min)
+
+### `group_by()` + `summarise()`
+
+`summarise()` collapses many rows into one. Combined with `group_by()` it gives one row per group. `n()` counts the rows of each group.
+
+```{r}
+wdi |>
+  filter(year == 2020) |>
+  group_by(region) |>
+  summarise(
+    n_countries = n(),
+    median_life = median(life_exp),
+    median_gdp_pc = median(gdp_pc_ppp)
+  )
+```
+
+Look at `median_gdp_pc`: `NA` for five of the seven regions. One missing value is enough for `median()` to return `NA`. We need to talk about missing values.
+
+### Missing values
+
+`NA` means "value unknown". It is contagious: any calculation involving an `NA` returns `NA`.
+
+```{r}
+mean(c(70, 75, NA))
+mean(c(70, 75, NA), na.rm = TRUE)   # ignore the NAs
+```
+
+How many `NA` per column in our panel?
+
+```{r}
+wdi |> summarise(across(everything(), \(x) sum(is.na(x))))
+```
+
+`gini` is missing for `r scales::percent(mean(is.na(wdi$gini)), accuracy = 1)` of the country-years: inequality is measured by household surveys, which are not run every year. Three tools:
+
+- `is.na(x)` returns `TRUE` where `x` is missing. Use it inside `filter()`.
+- `drop_na(var)` removes the rows where `var` is missing (without argument: any variable).
+- `na.rm = TRUE` inside `mean()`, `median()`, `sum()`... ignores the `NA` in the calculation.
+
+::: {.callout-warning}
+## Removing NAs changes your N, and possibly your conclusion
+Dropping missing values is **not neutral**: the countries that have no Gini are not a random sample (they are often poorer or less well covered by statistics). Always report how many observations each number rests on.
+:::
+
+```{r}
+wdi |>
+  filter(year == 2020) |>
+  summarise(
+    n_countries   = n(),
+    n_with_gdp_pc = sum(!is.na(gdp_pc_ppp)),
+    n_with_gini   = sum(!is.na(gini)),
+    median_gdp_pc = median(gdp_pc_ppp, na.rm = TRUE),
+    median_gini   = median(gini, na.rm = TRUE)
+  )
+```
+
+The median Gini is computed on `n_with_gini` countries only, not on all of them. Now the grouped table again, this time with N:
+
+```{r}
+wdi |>
+  filter(year == 2020) |>
+  group_by(region) |>
+  summarise(
+    n_countries   = n(),
+    n_gdp_pc      = sum(!is.na(gdp_pc_ppp)),
+    median_gdp_pc = median(gdp_pc_ppp, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  arrange(desc(median_gdp_pc))
+```
+
+Two details. `.groups = "drop"` removes the grouping from the result (otherwise it stays grouped, which can surprise you later). And since dplyr 1.1, `.by` is a shorter alternative to `group_by()`, with no grouping left behind:
+
+```{r}
+wdi |>
+  filter(year == 2020) |>
+  summarise(mean_life = mean(life_exp), n = n(), .by = income)
+```
+
+`count()` is the quickest way to tabulate a categorical variable (`sort = TRUE` puts the largest first):
+
+```{r}
+wdi |> filter(year == 2020) |> count(income, sort = TRUE)
+```
+
+## Factors: giving categories an order (≈ 15 min)
+
+R sorts text alphabetically, which is rarely what we want. Income groups have a natural order. A **factor** is a variable with a fixed, ordered list of categories (its `levels`).
+
+```{r}
+unique(wdi$income)   # check the exact labels before using them
+
+income_levels <- c("Low income", "Lower middle income",
+                   "Upper middle income", "High income")
+
+wdi <- wdi |>
+  mutate(income = factor(income, levels = income_levels))
+
+wdi |> filter(year == 2020) |> count(income)
+```
+
+Now the table follows the economic order and not the alphabet. Other tools from `forcats` (loaded with `tidyverse`):
+
+- `fct_relevel(x, "High income")` moves one level to the front without retyping all of them.
+- `fct_reorder(x, y)` orders the levels of `x` by the values of `y`. This is what makes bar charts readable (Session 5).
+
+```{r}
+#| fig-width: 8
+#| fig-height: 5
+wdi |>
+  filter(year == 2020) |>
+  summarise(median_life = median(life_exp), .by = region) |>
+  ggplot(aes(x = median_life, y = fct_reorder(region, median_life))) +
+  geom_col(fill = pal_cours[["principal"]]) +
+  labs(title = "Life expectancy is lowest in Sub-Saharan Africa",
+       x = "Median life expectancy at birth, 2020 (years)",
+       y = NULL,
+       caption = "Source: World Bank, WDI. Median across countries of each region.")
+```
+
+Without `fct_reorder()`, the bars would be in alphabetical order and the message would be harder to read.
+
+## Reshaping with tidyr: wide and long (≈ 30 min)
+
+### Tidy data in three rules
+
+A table is **tidy** when:
+
+1. each **variable** is a column;
+2. each **observation** is a row;
+3. each **value** is a cell.
+
+Our panel is tidy: one row per country-year, one column per variable (`year` is a column, not 24 columns). `ggplot2` and `dplyr` expect this *long* format.
+
+But data downloaded from the World Bank website or an Excel sheet usually come *wide*: one column per year (`2000`, `2001`, ...). It is handy to read, but a year is a value, not a variable. Before analysing such data, you reshape them.
+
+### `pivot_wider()`: long to wide
+
+Life expectancy for five countries, one column per year:
+
+```{r}
+life_long <- wdi |>
+  filter(country %in% c("Algeria", "Brazil", "Ghana", "India", "Norway"),
+         year %in% c(2000, 2010, 2020)) |>
+  select(country, year, life_exp)
+
+life_long
+
+life_wide <- life_long |>
+  pivot_wider(names_from = year, values_from = life_exp, names_prefix = "y")
+
+life_wide
+```
+
+`names_from` gives the column that becomes the new column names, `values_from` the column that fills the cells.
+
+### `pivot_longer()`: wide to long
+
+The way back, which is the one you will use most with Excel-style downloads:
+
+```{r}
+life_back <- life_wide |>
+  pivot_longer(cols = starts_with("y"),
+               names_to = "year", names_prefix = "y",
+               values_to = "life_exp") |>
+  mutate(year = as.integer(year))   # year came back as text
+
+life_back
+
+# Check: we recover exactly the table we started from
+all.equal(as.data.frame(life_back), as.data.frame(life_long))
+```
+
+## Joins: combining two tables (≈ 40 min)
+
+Real projects use several sources: GDP from the World Bank, inequality from WID, trade from the OECD. A **join** adds to table `x` the columns of table `y`, matching rows on a **key** (one or several columns).
+
+### A tiny example
+
+```{r}
+data1 <- tibble(country = c("US", "CN", "IN"), value1 = 1:3)
+data2 <- tibble(country = c("US", "CN", "BR"), value2 = 4:6)
+
+data1
+data2
+```
+
+"US" and "CN" are in both tables, "IN" only on the left, "BR" only on the right. The four main joins differ in **which rows they keep**:
+
+```{r}
+left_join(data1, data2, by = "country")    # all rows of data1
+inner_join(data1, data2, by = "country")   # only rows found in both
+full_join(data1, data2, by = "country")    # all rows of both
+anti_join(data1, data2, by = "country")    # rows of data1 with NO match in data2
+```
+
+| Join | Keeps | Rows here | Unmatched values |
+|------------------|--------------------------|------|----------------------|
+| `left_join(x, y)` | all rows of `x` | 3 (US, CN, IN) | `NA` for `y`'s columns |
+| `inner_join(x, y)` | rows present in both | 2 (US, CN) | none |
+| `full_join(x, y)` | all rows of both | 4 (US, CN, IN, BR) | `NA` on either side |
+| `anti_join(x, y)` | rows of `x` absent from `y` | 1 (IN) | no `y` columns at all |
+
+(`right_join(x, y)` is `left_join(y, x)` with the columns in another order; you can ignore it.)
+
+`left_join()` is the default choice: you start from your main table and *add* information, without ever losing a row of the main table. `anti_join()` is not a way to merge but a **diagnostic**: it lists the keys that failed to match.
+
+### The real-world trap: joining on country names
+
+We want to add inequality data from the World Inequality Database (WID) to GDP from the World Bank, for three countries.
+
+```{r}
+gdp3 <- read_csv(here("data", "wdi_3countries.csv"), show_col_types = FALSE)
+wid  <- read_csv(here("data", "wid_gini.csv"), show_col_types = FALSE)
+
+gdp3 |> slice(1, 22, 43)
+wid  |> slice(1, 22, 43)
+```
+
+The natural idea: both tables have a country column, so join on it. (WID calls it `country_wid`, so we tell `by` that the two names are equivalent.)
+
+```{r}
+naive <- gdp3 |>
+  left_join(wid, by = c("country" = "country_wid", "year"))
+
+nrow(gdp3)
+nrow(naive)
+
+naive |>
+  summarise(n_rows = n(), n_gini = sum(!is.na(gini)), .by = country)
+```
+
+No error, no warning, the right number of rows. And yet **the United States has no Gini at all**. Why? WDI writes "United States", WID writes "USA": the two strings differ, so no row matches, and `left_join()` fills with `NA`.
+
+::: {.callout-important}
+## This exact bug was in an earlier version of this course
+The first version of the course joined these two tables by country name. The US silently lost its Gini and nobody noticed, because R raised nothing. A join never complains about unmatched keys. **You** must check.
+:::
+
+Two checks that would have caught it:
+
+```{r}
+# 1. anti_join: which keys of the left table have no match on the right?
+gdp3 |>
+  anti_join(wid, by = c("country" = "country_wid", "year")) |>
+  distinct(country)
+
+# 2. count the NAs created by the join
+sum(is.na(naive$gini))
+```
+
+The fix: **join on a standardised code, not on a name.** The ISO 3-letter code (`iso3c`) is the same in both sources. Names change ("Turkey" / "Turkiye", "Korea, Rep." / "South Korea"); codes do not.
+
+```{r}
+gdp_gini <- gdp3 |>
+  left_join(select(wid, iso3c, year, gini), by = c("iso3c", "year"))
+
+nrow(gdp3)
+nrow(gdp_gini)
+sum(is.na(gdp_gini$gini))
+
+gdp_gini |>
+  summarise(n_rows = n(), n_gini = sum(!is.na(gini)), .by = country)
+
+# And the anti_join check is now empty
+gdp3 |> anti_join(wid, by = c("iso3c", "year")) |> nrow()
+```
+
+We selected only `iso3c`, `year` and `gini` from `wid`: otherwise `country` and `country_wid` would both be carried along, which is confusing.
+
+### Good habits for every join
+
+1. **Join on codes** (`iso3c`, not names), and on all the keys that identify a row: country *and* year here.
+2. **Count rows before and after** with `nrow()`. After a `left_join()`, the number of rows should equal that of the left table.
+3. **Run `anti_join()`** in both directions to see what did not match.
+4. **Count the `NA`** in the new columns.
+
+What if the key is not unique in the right table? For instance, joining on `iso3c` alone when `wid` has 21 years per country: each row of `gdp3` matches 21 rows of `wid`, and the result explodes to many more rows. Since dplyr 1.1, `*_join()` warns about unexpected many-to-many matches, and you can state your expectation with the `relationship` argument:
+
+```{r}
+#| eval: false
+# Each (iso3c, year) must appear at most once in wid, otherwise: error
+gdp3 |>
+  left_join(wid, by = c("iso3c", "year"), relationship = "many-to-one")
+```
+
+Do not ignore that warning: it almost always means the key is incomplete (here, `year` was forgotten).
+
+## Exercises (≈ 40 min)
+
+The following exercises use the panel `wdi`.
+
+::: {.callout-tip}
+## Exercise 3.1: filter, select, arrange
+Take the Sub-Saharan African countries in 2020. Keep `country`, `income`, `life_exp` and `elec_access`, and sort them by life expectancy, lowest first. Show the 10 lowest. How many countries are in the group?
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+ssa_2020 <- wdi |>
+  filter(region == "Sub-Saharan Africa", year == 2020) |>
+  select(country, income, life_exp, elec_access) |>
+  arrange(life_exp)
+
+nrow(ssa_2020)   # N
+head(ssa_2020, 10)
+```
+:::
+
+::: {.callout-tip}
+## Exercise 3.2: mutate
+Add the column `gdp_bn` (GDP in billions of US$) to the 2020 data and list the 5 countries with the largest GDP, with their GDP in billions. Which of them are *not* high income?
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+wdi |>
+  filter(year == 2020) |>
+  mutate(gdp_bn = gdp / 1e9) |>
+  arrange(desc(gdp_bn)) |>
+  select(country, income, gdp_bn) |>
+  head(5)
+```
+The list contains China, which is not classified as high income by the World Bank.
+:::
+
+::: {.callout-tip}
+## Exercise 3.3: group_by and summarise
+For each region **and** each year in 2000, 2010 and 2020, compute the median GDP per capita (PPP) and the number of countries it is based on (excluding missing values). Present the result sorted by year, then by median.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+wdi |>
+  filter(year %in% c(2000, 2010, 2020)) |>
+  summarise(
+    n_countries   = sum(!is.na(gdp_pc_ppp)),
+    median_gdp_pc = median(gdp_pc_ppp, na.rm = TRUE),
+    .by = c(region, year)
+  ) |>
+  arrange(year, desc(median_gdp_pc))
+```
+The N is not constant across regions and years: compare the medians with that in mind.
+:::
+
+::: {.callout-tip}
+## Exercise 3.4: pivot
+Build a table with one row per region and one column per year (2000, 2010, 2020) containing the median life expectancy. Then bring it back to long format.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+life_region <- wdi |>
+  filter(year %in% c(2000, 2010, 2020)) |>
+  summarise(median_life = median(life_exp), .by = c(region, year)) |>
+  pivot_wider(names_from = year, values_from = median_life, names_prefix = "y")
+
+life_region
+
+life_region |>
+  pivot_longer(starts_with("y"), names_to = "year", names_prefix = "y",
+               values_to = "median_life")
+```
+:::
+
+::: {.callout-tip}
+## Exercise 3.5: join and check
+Using `wdi`, build the table `elec` with `iso3c`, `year`, `elec_access` for 2020. Then join it to a table `small` that contains `iso3c = c("FRA", "GHA", "XXX")` (the last code does not exist). Use `left_join()`, check the number of rows, then use `anti_join()` to find the code that did not match.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+elec <- wdi |>
+  filter(year == 2020) |>
+  select(iso3c, year, elec_access)
+
+small <- tibble(iso3c = c("FRA", "GHA", "XXX"))
+
+joined <- small |> left_join(elec, by = "iso3c")
+
+nrow(small)
+nrow(joined)   # same: left_join keeps all rows of `small`
+joined         # XXX has NA
+
+small |> anti_join(elec, by = "iso3c")   # the code that failed to match
+```
+:::
+
+## Key takeaways
+
+- The pipe `|>` reads as "and then": one verb per line, top to bottom.
+- `filter()` selects rows, `select()` columns, `arrange()` sorts, `mutate()` creates variables, `summarise()` (with `group_by()` or `.by`) collapses to one row per group.
+- Missing values are contagious: `na.rm = TRUE` or `drop_na()` fix the calculation but change N. **Always report N.**
+- Factors give categories a meaningful order (`factor(levels = )`, `fct_relevel()`, `fct_reorder()`).
+- Tidy data: one variable per column, one observation per row, one value per cell. `pivot_longer()` and `pivot_wider()` switch between formats.
+- A join never complains about keys that do not match. Join on codes (`iso3c`), count rows before and after, and run `anti_join()`.
+
+Next: [Session 4: Descriptive statistics and regression](seance-4.qmd).

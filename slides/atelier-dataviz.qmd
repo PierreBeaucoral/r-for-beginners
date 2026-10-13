@@ -1,0 +1,360 @@
+---
+title: "Visualisation graphique"
+subtitle: "Atelier : une figure pour la note au ministre"
+author: "Pierre Beaucoral, CERDI (UCA, CNRS, IRD), Master GPE"
+lang: fr
+format:
+  revealjs:
+    footer: "Pierre Beaucoral, Master GPE"
+    transition: fade
+    preview-links: auto
+execute:
+  echo: false
+  fig-width: 11
+  fig-height: 5.5
+  fig-dpi: 150
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(scales)
+library(patchwork)
+library(here)
+source(here("R", "theme_cours.R"))
+theme_set(theme_cours(base_size = 20))
+```
+
+## Objectif de la séance
+
+À la fin, vous savez produire **1 figure « prête à coller »** dans votre *note au ministre* :
+
+::: incremental
+-   **Une idée, une figure**
+-   **Lisible en 10 secondes**
+-   **Autonome** : titre, axes, unités, source, notes utiles
+-   **Honnête** : incertitude, limites, pas de sur-promesse
+:::
+
+> Dans une note de décision publique, une figure est un outil d'arbitrage, pas une preuve « pour les pairs ».
+
+## La règle d'or : « une figure = un message »
+
+Avant de coder :
+
+1.  Quel est le message en 1 phrase ? (résultat, comparaison, tendance)
+2.  Qui lit ? (cabinet, administration, médias : peu de temps)
+3.  Quelle action est impliquée ? (prioriser, cibler, financer, réformer)
+
+::: callout-tip
+**Test express** : si votre titre ressemble à « Graphique 1 : Résultats », votre figure n'a pas encore de message.
+:::
+
+## De l'« output » à l'« insight »
+
+**Une mauvaise figure** ressemble à une exportation brute :
+
+-   trop de décimales, codes internes, surcharge visuelle
+-   « ça montre tout », donc ça n'aide à décider de rien
+
+**Une bonne figure** :
+
+-   sélectionne l'essentiel
+-   guide l'œil vers ce qui compte (hiérarchie visuelle)
+-   laisse le lecteur conclure **vite** et **sans deviner**
+
+## La théorie dicte la mesure
+
+Trois questions simples :
+
+-   **Unité et grandeur** : € ? % ? par habitant ? par an ?
+-   **Transformation** : niveau, log ou variation ?
+-   **Normalisation** : par population ? par PIB ? par km² ?
+
+> Même un « simple descriptif » implique des choix théoriques.
+
+## Hygiène des données
+
+Checklist rapide avant toute figure :
+
+-   Qui collecte ? Quand ? Comment ? Est-ce représentatif ?
+-   Min / max plausibles ? Valeurs extrêmes ? Doublons ?
+-   Données manquantes : pourquoi ? où ?
+-   Définition exacte des variables (glossaire)
+
+::: callout-caution
+Une valeur extrême peut retourner une recommandation.
+:::
+
+## Choisir le bon type de graphique
+
+| Objectif | Graphique |
+|----------------------------|--------------------------------------------|
+| Comparer des niveaux | barres **triées**, dotplot |
+| Comparer des distributions | histogramme ou densité, avec médiane |
+| Montrer une tendance | série temporelle (ligne) |
+| Montrer un effet et son incertitude | estimation + intervalle |
+| Montrer des parts | éviter le camembert ; barres empilées (rare) |
+
+::: callout-tip
+Si vous avez besoin de 3 légendes et 2 notes pour comprendre, c'est trop.
+:::
+
+## Exemple : la moyenne cache l'histoire
+
+Deux zones simulées, **même revenu moyen**, mais des sociétés très différentes.
+
+```{r}
+#| label: sim-distrib
+#| fig-height: 5
+# Zone A : unimodale. Zone B : bimodale (deux groupes). Moyennes alignées par construction.
+set.seed(1)
+n <- 4000
+sdl <- c(0.25, 0.18)
+mB_theo <- 0.5 * (exp(10.4 + sdl[2]^2 / 2) + exp(11.0 + sdl[2]^2 / 2))
+mlA <- log(mB_theo) - sdl[1]^2 / 2   # meanlog de A tel que E[A] = E[B]
+
+df_dist <- tibble(
+  zone = rep(c("Zone A", "Zone B"), each = n),
+  revenu = c(rlnorm(n, mlA, sdl[1]),
+             rlnorm(n / 2, 10.4, sdl[2]), rlnorm(n / 2, 11.0, sdl[2]))
+)
+moy <- df_dist |> summarise(moyenne = mean(revenu), .by = zone)
+rel_gap <- abs(diff(moy$moyenne)) / mean(moy$moyenne)
+stopifnot(rel_gap < 0.01)   # moyennes à moins de 1 %
+
+dmax <- max(density(df_dist$revenu[df_dist$zone == "Zone A"])$y)
+lab_z <- tibble(zone = c("Zone A", "Zone B"),
+                lab = c("Zone A : un seul groupe", "Zone B : deux groupes"),
+                x = c(50000, 88000), y = c(1.1 * dmax, 0.3 * dmax))
+cols_z <- c("Zone A" = unname(pal_cours["principal"]), "Zone B" = unname(pal_cours["accent"]))
+
+ggplot(df_dist, aes(revenu, fill = zone, colour = zone)) +
+  geom_density(alpha = 0.25, linewidth = 0.8) +
+  geom_vline(xintercept = mean(moy$moyenne), linetype = "dashed", colour = "grey20") +
+  annotate("label", x = mean(moy$moyenne), y = 1.5 * dmax, hjust = 0.5, size = 6.5,
+           label = paste0("Moyenne des deux zones :\n",
+                          number(mean(moy$moyenne) / 1000, accuracy = 1), " k€"),
+           colour = "grey20", fill = "white", label.size = 0) +
+  geom_text(data = lab_z, aes(x = x, y = y, label = lab, colour = zone), hjust = 0,
+            inherit.aes = FALSE, fontface = "bold", size = 7) +
+  scale_fill_manual(values = cols_z) +
+  scale_colour_manual(values = cols_z) +
+  scale_x_continuous(labels = label_number(scale = 1e-3, suffix = " k€")) +
+  scale_y_continuous(breaks = NULL, expand = expansion(mult = c(0, 0.05)), limits = c(0, 1.7 * dmax)) +
+  guides(fill = "none", colour = "none") +
+  labs(title = "Même revenu moyen, mais la zone B est coupée en deux groupes",
+       x = "Revenu annuel par ménage (k€)", y = NULL,
+       caption = "Données simulées (exemple pédagogique).")
+```
+
+## Do / Don't n°1 : titres et unités
+
+::: columns
+::: {.column width="50%"}
+**DON'T**
+
+-   « Figure 1 : Revenus »
+-   Axe Y en `1.4e05`
+-   Variables `inc_tot_log`, `ps102`
+:::
+
+::: {.column width="50%"}
+**DO**
+
+-   Titre = conclusion : « Le revenu médian stagne malgré la hausse du revenu moyen »
+-   Unités intelligibles : « € / mois », « % », « pour 1 000 habitants »
+-   Libellés en français courant, pas de codes
+:::
+:::
+
+## Do / Don't n°2 : lisibilité et hiérarchie visuelle
+
+Deux règles : police **≥ 12 pt** une fois la figure collée ; **faire ressortir le signal, contexte en gris**.
+
+```{r}
+#| label: ugly-vs-good
+#| fig-width: 14
+#| fig-height: 5.6
+# Séries simulées : chômage national et 4 régions (décalages fixes, rien d'aléatoire)
+annee <- 2012:2023
+nat <- c(10.2, 10.1, 10.3, 10.4, 10.2, 9.8, 9.1, 8.5, 8.0, 7.6, 7.3, 7.2)
+off <- c("Nord" = 1.8, "Sud" = 2.6, "Est" = -0.9, "Ouest" = -1.6)
+wiggle <- c(0, .2, -.1, .3, .1, -.2, .2, -.1, .1, .2, -.1, 0)
+df_reg <- map_dfr(names(off), \(r) tibble(
+  annee = annee, region = r, chomage = nat + off[[r]] + wiggle * (match(r, names(off)) - 2.5)))
+df_nat <- tibble(annee = annee, chomage = nat)
+
+p_ugly <- ggplot(df_reg, aes(annee, chomage, colour = region)) +
+  geom_line() + geom_point() +
+  theme_gray(base_size = 16) +
+  labs(title = "Figure 1 : chômage", x = "year", y = "u")
+
+p_good <- ggplot(df_reg, aes(annee, chomage, group = region)) +
+  geom_line(colour = pal_cours[["gris"]], linewidth = 0.9) +
+  geom_line(data = df_nat, aes(group = 1), colour = pal_cours[["principal"]], linewidth = 1.8) +
+  geom_vline(xintercept = 2016, linetype = "dotted", colour = "grey40") +
+  annotate("text", x = 2016.2, y = 14.2, label = "2016 : point de retournement",
+           hjust = 0, size = 5.5, colour = "grey25") +
+  annotate("text", x = 2023, y = nat[12] + 0.9, label = "National", hjust = 1,
+           fontface = "bold", size = 6, colour = pal_cours[["principal"]]) +
+  annotate("text", x = 2012, y = 14.2, label = "Régions (contexte)", hjust = 0,
+           size = 5, colour = "grey45") +
+  scale_y_continuous(labels = label_number(suffix = " %"), limits = c(5, 14.8)) +
+  scale_x_continuous(breaks = seq(2012, 2023, 3)) +
+  labs(title = "Le chômage national recule de 3 points depuis 2016",
+       x = NULL, y = "Taux de chômage",
+       caption = "Données simulées. Source : à remplacer (INSEE, Eurostat).") +
+  theme_cours(base_size = 16)
+
+p_ugly + p_good + plot_layout(widths = c(1, 1.25))
+```
+
+## Un exemple réel : l'accès à l'électricité
+
+```{r}
+#| label: wdi-elec
+wdi <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
+pays <- c("Ethiopia" = "Éthiopie", "Kenya" = "Kenya", "Nigeria" = "Nigeria",
+          "Bangladesh" = "Bangladesh", "India" = "Inde")
+focus <- "Bangladesh"
+df_elec <- wdi |>
+  filter(country %in% names(pays), !is.na(elec_access)) |>
+  mutate(pays = pays[country], signal = country == focus)
+fin <- df_elec |> filter(year == max(year)) |>
+  mutate(y_lab = case_when(country == "India" ~ 104, country == "Bangladesh" ~ 94, .default = elec_access))
+deb <- df_elec |> filter(country == focus, year == 2000)
+
+ggplot(df_elec, aes(year, elec_access, group = pays, colour = signal, linewidth = signal)) +
+  geom_line() +
+  geom_text(data = fin, aes(y = y_lab, label = pays), hjust = 0, nudge_x = 0.4, size = 6.5,
+            linewidth = NULL) +
+  scale_colour_manual(values = c("TRUE" = pal_cours[["accent"]], "FALSE" = pal_cours[["gris"]])) +
+  scale_linewidth_manual(values = c("TRUE" = 2, "FALSE" = 0.9)) +
+  scale_x_continuous(breaks = seq(2000, 2020, 5), expand = expansion(mult = c(0.02, 0.2))) +
+  scale_y_continuous(labels = label_number(suffix = " %"), limits = c(0, 105), breaks = seq(0, 100, 25)) +
+  guides(colour = "none", linewidth = "none") +
+  labs(title = "Le Bangladesh a presque généralisé l'accès à l'électricité",
+       x = NULL, y = "Accès à l'électricité (%)",
+       caption = "Source : Banque mondiale, WDI (EG.ELC.ACCS.ZS).")
+```
+
+## Autonomie : une figure doit « tenir debout » seule
+
+Votre lecteur doit comprendre sans lire le paragraphe :
+
+-   Titre (message) et sous-titre (périmètre)
+-   Axes et unités
+-   Légende (si nécessaire) intégrée ou minimale
+-   Source (et année, couverture)
+-   Note courte si choix méthodologique (ex. pondération)
+
+## Le piège « kitchen sink » : tout montrer
+
+::: columns
+::: {.column width="50%"}
+**DON'T**
+
+12 courbes, 8 couleurs, 4 facettes, 1 légende illisible : « j'ai travaillé », mais personne ne voit le résultat.
+:::
+
+::: {.column width="50%"}
+**DO**
+
+-   1 résultat central
+-   1 contexte discret
+-   1 annotation utile (événement, réforme, seuil)
+:::
+:::
+
+## Montrer l'incertitude
+
+Quand le message repose sur une estimation :
+
+-   point = estimation ; barre = intervalle (IC 95 % = estimation ± 1,96 × erreur-type)
+-   note : niveau d'agrégation, clustering, N
+
+```{r}
+#| label: effect-ci
+#| fig-height: 4.3
+df_eff <- tibble(
+  groupe = c("Zones urbaines", "Zones rurales"),
+  effet = c(1.8, 0.4),
+  se = c(0.6, 0.5)
+)
+# Différence ville - campagne, en supposant les deux estimations indépendantes
+diff_row <- tibble(groupe = "Différence ville - campagne",
+                   effet = df_eff$effet[1] - df_eff$effet[2],
+                   se = sqrt(df_eff$se[1]^2 + df_eff$se[2]^2))
+df_ic <- bind_rows(df_eff, diff_row) |>
+  mutate(lo = effet - 1.96 * se, hi = effet + 1.96 * se,
+         groupe = factor(groupe, levels = rev(groupe)),
+         diff = groupe == "Différence ville - campagne")
+
+ggplot(df_ic, aes(x = effet, y = groupe, colour = diff)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey40") +
+  geom_pointrange(aes(xmin = lo, xmax = hi), linewidth = 1.1, size = 0.9) +
+  scale_colour_manual(values = c("TRUE" = pal_cours[["accent"]], "FALSE" = pal_cours[["principal"]])) +
+  guides(colour = "none") +
+  labs(title = "Effet positif en ville ; la différence ville-campagne n'est pas établie",
+       x = "Effet estimé (points de %), IC 95 %", y = NULL,
+       caption = "Notes : IC 95 %, estimations supposées indépendantes. Exemple simulé.")
+```
+
+::: notes
+Ville : 1,8 [0,6 ; 3,0], l'IC exclut 0. Campagne : 0,4 [-0,6 ; 1,4], l'IC inclut 0. Les deux IC se chevauchent, et surtout l'IC de la différence (1,4 ; environ [-0,1 ; 2,9]) inclut 0 : on ne peut pas affirmer que l'effet est plus net en ville. « Significatif d'un côté, pas de l'autre » n'est pas une différence significative.
+:::
+
+## Mini-checklist
+
+1.  **Message** : le titre dit-il la conclusion ?
+2.  **Lisibilité** : police OK, axes clairs, unités intelligibles ?
+3.  **Honnêteté** : pas de causalité sur-vendue, incertitude si besoin ?
+4.  **Autonomie** : source, période, notes minimales ?
+5.  **Simplicité** : pouvez-vous expliquer la figure en 20 secondes ?
+
+::: callout-tip
+Test de la grand-mère : sauriez-vous l'expliquer simplement à votre grand-mère, un oncle, ou un ami hors du sujet ?
+:::
+
+## Exercice : la figure de votre note au ministre
+
+Choisissez **un indicateur** et **une comparaison** pertinente pour votre sujet :
+
+-   **Tendance** (avant / après, 10 ans)
+-   **Comparaison** (régions, groupes, quintiles)
+-   **Distribution** (inégalités, hétérogénéité)
+-   **Effet estimé** (avec IC), déconseillé
+
+**Livrable** : 1 figure exportée en **PNG** ou **PDF**, avec titre-message, axes, unités, source.
+
+## Ressources
+
+**Guides R / ggplot2**
+
+-   *R for Data Science*, 2e éd. : <https://r4ds.hadley.nz/>
+-   *ggplot2: Elegant Graphics for Data Analysis* : <https://ggplot2-book.org/>
+-   Claus Wilke, *Fundamentals of Data Visualization* : <https://clauswilke.com/dataviz/>
+-   R Graph Gallery : <https://r-graph-gallery.com/>
+
+**Données et visualisation « policy »**
+
+-   Our World in Data : <https://ourworldindata.org/>
+-   OCDE : <https://data-explorer.oecd.org/>
+-   Banque mondiale : <https://data.worldbank.org/>
+
+**Palettes accessibles** : <https://cran.r-project.org/package=viridis>, <https://colorbrewer2.org/>
+
+## Conclusion
+
+**Rigueur + clarté = influence**
+
+Votre objectif n'est pas de « faire joli » :
+
+-   c'est de rendre une décision **plus informée**
+-   avec une figure **simple, autonome, honnête**
+
+Merci !
+
+[Retour à la page du cours](../index.html)

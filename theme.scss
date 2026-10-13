@@ -1,0 +1,52 @@
+/*-- scss:defaults --*/
+// Palette — sobre, académique (bleu ardoise + accents)
+$primary:      #1f4e79;   // bleu profond (navbar, titres)
+$secondary:    #6c757d;
+$body-color:   #1a1a1a;
+$link-color:   #1f4e79;
+$font-family-sans-serif: "Source Sans Pro", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+$font-size-root: 17px;
+$toc-color: $primary;
+
+/*-- scss:rules --*/
+// Titres
+h1, h2, h3 { color: $primary; font-weight: 600; letter-spacing: -0.01em; }
+h2 { border-bottom: 2px solid rgba(31,78,121,.15); padding-bottom: .3rem; margin-top: 2rem; }
+
+// Boîtes pédagogiques via callouts par défaut de Quarto (note/tip/warning/important)
+.callout { border-radius: 6px; }
+
+// "Objectifs de la séance" — encart en tête de page
+.objectifs {
+  background: #f0f5fa;
+  border-left: 4px solid $primary;
+  padding: .9rem 1.2rem;
+  border-radius: 4px;
+  margin: 1rem 0 1.5rem 0;
+}
+.objectifs > p:first-child { font-weight: 700; color: $primary; margin-bottom: .4rem; }
+
+// Définitions clés
+.definition {
+  background: #fbf7ef;
+  border: 1px solid #e6d9bd;
+  border-left: 4px solid #b8860b;
+  padding: .7rem 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+
+// Tableaux
+table { font-size: .95em; }
+thead th { background: #f0f5fa; }
+
+// Cartes de navigation (accueil)
+.grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 1rem; margin: 1.5rem 0; }
+.grid-cards a.card-tile {
+  display: block; padding: 1.1rem 1.2rem; border: 1px solid #e2e2e2; border-radius: 8px;
+  text-decoration: none; color: $body-color; background: #fff; transition: .15s;
+}
+.grid-cards a.card-tile:hover { border-color: $primary; box-shadow: 0 3px 12px rgba(31,78,121,.12); transform: translateY(-2px); }
+.grid-cards .card-tile .tag { font-size: .8em; color: $primary; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.grid-cards .card-tile h3 { margin: .3rem 0 .3rem; font-size: 1.05rem; }
+.grid-cards .card-tile p { font-size: .9em; color: #555; margin: 0; }

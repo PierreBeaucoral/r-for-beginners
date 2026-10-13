@@ -1,0 +1,15 @@
+/*-- scss:defaults --*/
+$presentation-heading-color: #1f4e79;
+$link-color: #1f4e79;
+$body-color: #1a1a1a;
+$presentation-font-size-root: 30px;
+$presentation-heading-font-weight: 600;
+$code-block-font-size: 0.78em;
+
+/*-- scss:rules --*/
+.reveal { text-align: left; }
+.reveal h1, .reveal h2, .reveal h3 { text-align: left; letter-spacing: -0.01em; }
+.reveal pre code { max-height: 520px; font-size: 0.78em; }
+.reveal code { color: #1f4e79; }
+.reveal .callout { font-size: 0.9em; }
+.reveal .slide-number { color: #1f4e79; }

@@ -1,0 +1,411 @@
+---
+title: "Session 2: Importing and exporting data"
+subtitle: "CSV, Excel, awkward files, and data straight from the World Bank"
+---
+
+```{r}
+#| label: setup
+Sys.setenv(LANGUAGE = "en")   # R messages in English
+library(tidyverse)   # readr,dplyr, ggplot2, ...
+library(here)        # project-relative paths
+library(janitor)     # clean_names()
+library(readxl)      # read Excel files
+library(writexl)     # write Excel files
+library(lubridate)   # dates (teaser)
+library(scales)      # label_dollar()
+library(WDI)         # World Bank API (used in a non-evaluated chunk)
+
+source(here("R", "theme_cours.R"))
+```
+
+::: {.objectifs}
+Session objectives
+
+- Locate files with `here::here()` instead of `setwd()`.
+- Import CSV and Excel files, and inspect what you imported.
+- Handle a badly formatted file: look at the raw text first, then check `nrow()` and `problems()`.
+- Export results to `output/` (CSV, Excel, `.rds`) without touching the raw data.
+- Get World Bank data with the `WDI` package, and understand why we cache it.
+:::
+
+## 1. Where are my files? (≈ 15 min)
+
+Last session you worked in an RStudio project. The project folder is the **working directory**. Our layout:
+
+```
+r-for-beginners/
+├── data/          # data given to you. data/raw/ = original files, READ-ONLY
+├── output/        # everything YOU produce (tables, exports)
+└── seances/       # the course pages
+```
+
+Rule: **never write into `data/`**. If you overwrite a raw file, the original is gone. Everything you create goes to `output/`.
+
+Do not use `setwd("C:/Users/me/...")`. It breaks on every other computer. Use `here::here()`: it builds a path from the project root, whatever the machine.
+
+```{r}
+here("data", "raw", "SCIM.csv")   # the absolute part depends on your machine
+file.exists(here("data", "raw", "SCIM.csv"))
+```
+
+`file.exists()` returning `TRUE` is the first check to make when an import fails.
+
+## 2. CSV files with `readr` (≈ 35 min)
+
+A CSV (comma-separated values) file is plain text: one row per line, values separated by a delimiter. `read_csv()` guesses the type of each column from the first 1000 rows.
+
+We use `SCIM.csv`, OECD data on international trade (exports, imports, trade balance) by country and period.
+
+```{r}
+scim <- read_csv(here("data", "raw", "SCIM.csv"))
+```
+
+When you run this in the console, `readr` prints the number of rows and columns and the type it guessed for each: read it, it is the cheapest check you have (this page hides such messages). Now look at the data.
+
+```{r}
+head(scim)
+glimpse(scim)
+```
+
+`glimpse()` shows every column on one line with its type: use it more than `head()`. `summary()` gives numeric summaries:
+
+```{r}
+summary(scim$Value)
+```
+
+What do we notice?
+
+- Column names mix cases and contain spaces (`"Unit Code"`, `"Reference Period"`). Awkward to type, because you need backticks.
+- Columns come in **French/English pairs** (`SUBJECT`/`Sujet`, `LOCATION`/`Pays`, `MEASURE`/`Mesure`, `TIME`/`Temps`): the same information twice.
+- `TIME` is a text column that mixes months (`"2022-04"`) and quarters (`"2022-Q2"`).
+
+`janitor::clean_names()` turns names into consistent `snake_case`:
+
+```{r}
+scim <- clean_names(scim)
+names(scim)
+```
+
+Let us drop the French duplicates and the empty columns, and count what is left:
+
+```{r}
+scim <- scim |>
+  select(subject, location, measure, time, value)
+
+scim |> count(subject)
+```
+
+The three subjects are exports (`XTEXVA01`), imports (`XTIMVA01`) and net trade (`XTNTVA01`). 
+
+**Teaser: dates.** `time` is text, so R cannot sort or plot it as a date. `lubridate::yq()` converts `"2022-Q2"` to the first day of that quarter (we will use dates properly in session 3):
+
+```{r}
+scim |>
+  filter(str_detect(time, "Q")) |>
+  distinct(time) |>
+  mutate(date = yq(time))
+```
+
+## 3. Excel files with `readxl` (≈ 25 min)
+
+`read_excel()` reads `.xls` and `.xlsx` files. An Excel file can contain several **sheets**, so first list them:
+
+```{r}
+path_xls <- here("data", "raw", "SCIM.xls")
+excel_sheets(path_xls)
+```
+
+Two sheets. By default `read_excel()` reads the first one. Choose a sheet by name or position with `sheet =`:
+
+```{r}
+scim_xls <- read_excel(path_xls, sheet = "Sheet1")
+dim(scim_xls)
+scim_xls[1:5, 1:6]
+```
+
+This file is not the same as the CSV: it is in **wide format** (one column per month, one row per country), and the month names are in French. And the second sheet?
+
+```{r}
+dim(read_excel(path_xls, sheet = "Feuil2"))
+```
+
+It is empty (0 rows, 0 columns). Lesson: do not assume what a sheet contains.
+
+To read only part of a sheet, use `range =` (Excel notation):
+
+```{r}
+read_excel(path_xls, sheet = "Sheet1", range = "A1:D6")
+```
+
+## 4. A hard import: the WID file (≈ 40 min)
+
+Real files are rarely clean. `WID_Data.csv` comes from the [World Inequality Database](https://wid.world): Gini coefficients of pre-tax national income for China, India and the USA. Before running any code, **look at the raw text**:
+
+```{r}
+readLines(here("data", "raw", "WID_Data.csv"), n = 9)
+```
+
+Three problems:
+
+1. The first line is a **comment** ("Downloaded from wid.world..."), not a header.
+2. Separator is `;`, not `,`.
+3. The variable label is **spread over several lines** inside quotes, and there is no header row.
+
+A naive `read_csv()` does not fail loudly. It returns something:
+
+```{r}
+#| warning: false
+wid_naive <- read_csv(here("data", "raw", "WID_Data.csv"))   # naive attempt
+dim(wid_naive)
+head(wid_naive, 3)
+```
+
+One column, 190 "rows" that are fragments of text, and the comment line became the column name. We know the file has 3 countries × 21 years = 63 observations, so 190 is wrong. `problems()` lists the cells `readr` could not parse; here it flags only one, so it is not enough: **your own `nrow()` check is what catches the error**.
+
+```{r}
+problems(wid_naive) |> select(-file)   # hide the long path
+```
+
+Now read it properly: skip the comment line, say the delimiter is `;`, and provide the column names ourselves.
+
+```{r}
+wid <- read_delim(
+  here("data", "raw", "WID_Data.csv"),
+  delim = ";",
+  skip = 1,                                   # the comment line
+  col_names = c("country_wid", "indicator", "percentile", "year", "gini"),
+  show_col_types = FALSE
+)
+nrow(wid)
+glimpse(wid)
+```
+
+63 rows, as expected. The multi-line label ends up in `indicator`: quoted text may contain line breaks, and `readr` handles that. Compare with the cleaned version `data/wid_gini.csv` prepared for this course:
+
+```{r}
+wid_gini <- read_csv(here("data", "wid_gini.csv"), show_col_types = FALSE)
+glimpse(wid_gini)
+
+# Same numbers? (the cleaned file has an iso3c code in addition)
+all.equal(wid$gini, wid_gini$gini)
+```
+
+::: {.callout-important}
+## The checklist for any new file
+
+1. Open the raw text (`readLines(path, n = 10)`) before reading it.
+2. After the import: `nrow()`, `ncol()`, `glimpse()`: do they match what you expect?
+3. `problems(x)` lists the cells `readr` could not parse.
+4. Check missing values and types (`summary()`).
+:::
+
+The cleaned file carries an `iso3c` code (country code). Notice that WID writes `"USA"` where the World Bank writes `"United States"`: country names differ between sources. We will see in session 3 why you must join on codes, never on names.
+
+## 5. Writing files (≈ 30 min)
+
+Create the `output/` folder (nothing happens if it already exists), then write there.
+
+```{r}
+dir.create(here("output"), showWarnings = FALSE)
+```
+
+**Text files.** `write_csv()` writes a comma-separated file, `write_delim()` any delimiter:
+
+```{r}
+write_csv(wid_gini, here("output", "wid_gini_copy.csv"))
+write_delim(wid_gini, here("output", "wid_gini_tab.txt"), delim = "\t")
+```
+
+**Excel.** `writexl::write_xlsx()` writes one sheet from a data frame, or **several sheets from a named list**; the names become the sheet names:
+
+```{r}
+write_xlsx(wid_gini, here("output", "wid_gini.xlsx"))
+
+write_xlsx(
+  list(wid_clean = wid_gini, scim_sample = head(scim, 100)),
+  here("output", "two_sheets.xlsx")
+)
+excel_sheets(here("output", "two_sheets.xlsx"))
+```
+
+**R's own format: `.rds`.** A CSV loses information (column types, factor levels). `saveRDS()` stores one R object exactly as it is; `readRDS()` restores it.
+
+```{r}
+saveRDS(wid_gini, here("output", "wid_gini.rds"))
+wid_back <- readRDS(here("output", "wid_gini.rds"))
+identical(wid_gini, wid_back)
+```
+
+When to use what?
+
+| Format | Use it when |
+|---|---|
+| `.csv` | sharing with others or other software; the file must be readable anywhere |
+| `.xlsx` | the recipient works in Excel (several tables in one file) |
+| `.rds` | you want to reload the object in R exactly as it was (intermediate results) |
+
+## 6. Data from packages: the World Bank (≈ 30 min)
+
+Many institutions provide an R package to fetch their data directly. The `WDI` package queries the World Bank's **World Development Indicators**. Each indicator has a code, e.g. `NY.GDP.MKTP.CD` = GDP in current US dollars. Find a code with `WDIsearch()`:
+
+```{r}
+#| eval: false
+WDIsearch("gdp per capita")      # needs Internet
+```
+
+Fetching GDP for the USA, China and India looks like this:
+
+```{r}
+#| eval: false
+gdp_api <- WDI(
+  country   = c("US", "CN", "IN"),     # ISO-2 codes
+  indicator = c(gdp = "NY.GDP.MKTP.CD"),  # new_name = indicator code
+  start = 2000, end = 2020
+)
+```
+
+This chunk is **not evaluated** when this page is built: it needs an Internet connection and the World Bank server may be slow or change its data. Instead, the course uses a **cached copy** saved once by `R/00_prepare_data.R`.
+
+::: {.callout-note}
+## Why cache data?
+
+- **Reproducibility**: the World Bank revises its series. Today's call may give different numbers than last year's.
+- **Robustness**: no Internet, no download, no failure. Your classroom Wi-Fi is not a dependency.
+- **Speed**: calling an API at every run is slow.
+
+Good practice: fetch once, save the file in your project, read the file afterwards, and note the download date.
+:::
+
+```{r}
+wdi3 <- read_csv(here("data", "wdi_3countries.csv"), show_col_types = FALSE)
+glimpse(wdi3)
+```
+
+We also have a larger **panel**: all countries, 2000–2023, six indicators. It will be our main dataset from session 3.
+
+```{r}
+wdi_panel <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
+glimpse(wdi_panel)
+```
+
+## 7. A first look at the data (≈ 10 min)
+
+Just to see where we are going (session 5 explains each line): GDP of the three countries.
+
+```{r}
+#| fig-width: 8
+#| fig-height: 5
+ggplot(wdi3, aes(x = year, y = gdp, colour = country)) +
+  geom_line(linewidth = 1) +
+  scale_y_continuous(labels = label_dollar(scale = 1e-12, suffix = "T")) +
+  scale_colour_manual(values = c(China = pal_cours[["accent"]],
+                                 India = "#E69F00",
+                                 `United States` = pal_cours[["principal"]])) +
+  labs(
+    title = "China's GDP rose from 12% to 70% of the US level in 20 years",
+    x = NULL, y = "GDP (current US$, trillions)", colour = NULL,
+    caption = "Source: World Bank, WDI (NY.GDP.MKTP.CD), cached copy."
+  )
+```
+
+## 8. Exercises (≈ 30 min)
+
+::: {.callout-tip}
+## Exercise 2.1
+
+Import `data/raw/SCIM.csv`. Clean the column names, keep only `location`, `time`, `subject` and `value`, and display the first 6 rows. How many distinct countries (`location`) are there?
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+ex1 <- read_csv(here("data", "raw", "SCIM.csv"), show_col_types = FALSE) |>
+  clean_names() |>
+  select(location, time, subject, value)
+
+head(ex1)
+n_distinct(ex1$location)
+```
+:::
+
+::: {.callout-tip}
+## Exercise 2.2
+
+From `data/raw/SCIM.xls`, read sheet `Sheet1`, but only the cells `A1:C11` (country and the first two months). Which country has the highest value in the first month column?
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+ex2 <- read_excel(here("data", "raw", "SCIM.xls"), sheet = "Sheet1", range = "A1:C11")
+ex2
+ex2 |> slice_max(`Août-2022`, n = 1)
+```
+:::
+
+::: {.callout-tip}
+## Exercise 2.3
+
+Write `ex2` to `output/` as a CSV file and as an Excel file with two sheets (`ex2` and `ex1_head`, the latter being the first 20 rows of `ex1`). Check that the files exist.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+write_csv(ex2, here("output", "ex2.csv"))
+write_xlsx(list(ex2 = ex2, ex1_head = head(ex1, 20)),
+           here("output", "ex2_sheets.xlsx"))
+
+file.exists(here("output", c("ex2.csv", "ex2_sheets.xlsx")))
+```
+:::
+
+::: {.callout-tip}
+## Exercise 2.4
+
+Write the `WDI()` call that would fetch total population (`SP.POP.TOTL`) for Japan, Germany and Brazil from 2000 to 2020. (You cannot run it in class without Internet: write it only.)
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+#| eval: false
+pop_api <- WDI(
+  country   = c("JP", "DE", "BR"),
+  indicator = c(population = "SP.POP.TOTL"),
+  start = 2000, end = 2020
+)
+# then save it once, so that you never have to call the API again:
+dir.create(here("output"), showWarnings = FALSE)
+write_csv(pop_api, here("output", "pop_3countries.csv"))
+```
+`WDI()` takes ISO-2 country codes (or `"all"`), a named vector of indicators (`new_name = code`) and a period. The result has one row per country-year.
+:::
+
+::: {.callout-tip}
+## Exercise 2.5
+
+Using the cached panel `wdi_panel`, compute the average population (in millions) of Japan, Germany and Brazil over 2000–2020.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+wdi_panel |>
+  filter(country %in% c("Japan", "Germany", "Brazil"), year <= 2020) |>
+  summarise(mean_pop_millions = mean(population, na.rm = TRUE) / 1e6,
+            .by = country)
+```
+:::
+
+## Key takeaways
+
+- Never use `setwd()` or absolute paths: `here::here()` works on every machine.
+- `data/raw/` is read-only. Everything you produce goes to `output/`.
+- Look at the raw text of a file before reading it, and check `nrow()`, `glimpse()` and `problems()` after.
+- `read_csv()` for commas, `read_delim()` for other separators (`skip =`, `col_names =`); `read_excel()` with `sheet =` and `range =`.
+- `clean_names()` makes column names usable; duplicated columns and text dates are common in real data.
+- Write with `write_csv()`, `write_xlsx()` (a named list gives several sheets) and `saveRDS()` to keep R objects exactly.
+- Cache API data (`WDI`) in a file: reproducible, offline, fast.
+
+Next: [Session 3: Data manipulation](seance-3.qmd).

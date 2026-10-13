@@ -1,0 +1,671 @@
+---
+title: "Session 5: Visualising with ggplot2 (and maps)"
+subtitle: "From the grammar of graphics to a choropleth of the world, with the World Bank data"
+---
+
+::: {.objectifs}
+Session objectives
+
+- Read any ggplot as a stack of layers: data, aesthetics, geoms, scales, labels, theme.
+- Build the classic "Gapminder" scatter: life expectancy against income, with log scales and readable labels.
+- Choose the right chart: line (change over time), bar (comparison), histogram and boxplot (distribution).
+- Apply the "signal vs context" principle: highlight one series, grey out the others.
+- Draw a world map with `sf`, join it safely to the WDI data, and check what did not match.
+- Save a figure with explicit size and resolution.
+:::
+
+```{r}
+#| label: setup
+Sys.setenv(LANGUAGE = "en")   # R messages in English
+
+library(tidyverse)
+library(scales)
+library(ggrepel)
+library(sf)
+library(rnaturalearth)
+library(here)
+
+source(here("R", "theme_cours.R"))   # theme_cours(), pal_cours, pal_regions
+
+wdi <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
+
+# One row per country for the latest year with good coverage: the cross-section used below
+wdi_2022 <- wdi |>
+  filter(year == 2022)
+
+ttl <- \(x, width = 60) str_wrap(x, width)   # wrap long message titles
+
+src <- "Source: World Bank, World Development Indicators (WDI)."
+cap <- \(x) str_wrap(paste(src, x), 95)             # source + note, wrapped
+```
+
+Everything in this session uses the full panel (`wdi`, about 217 countries, 2000-2023). When a chart needs **one point per country**, we take one year, 2022 (`wdi_2022`). This matters: in the old version of this course, histograms were drawn on 63 pooled values of three countries. A chart is only as good as the question its data answer.
+
+## The grammar of graphics ≈ 25 min
+
+A ggplot is not a "chart type". It is a **recipe** with independent ingredients, added with `+`:
+
+| Ingredient | Question it answers | Typical code |
+|---|---|---|
+| **data** | Which table? | `ggplot(data = wdi_2022)` |
+| **aes**thetics | Which variable goes to which visual channel (x, y, colour, size)? | `aes(x = gdp_pc_ppp, y = life_exp)` |
+| **geom** | Which shape draws the data? | `geom_point()` |
+| **scales** | How is a value translated into a position / colour / size? | `scale_x_log10()`, `scale_colour_manual()` |
+| **labs** | What does the reader see in words? | `labs(title = , x = , y = , caption = )` |
+| **theme** | How does everything non-data look? | `theme_cours()` |
+
+The rule to remember: **aesthetics map variables, arguments set constants**. `aes(colour = region)` colours by the data; `colour = "red"` outside `aes()` paints everything red.
+
+Let us build one plot, one ingredient at a time. Each step is shown small.
+
+**Step 1.** Data and aesthetics only: an empty canvas with axes.
+
+```{r}
+#| label: layer-1
+#| fig-width: 6
+#| fig-height: 3.2
+wdi_2022_ok <- wdi_2022 |>
+  drop_na(gdp_pc_ppp, life_exp)        # a point needs both coordinates
+
+ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp))
+```
+
+**Step 2.** Add a geom: now the data are drawn.
+
+```{r}
+#| label: layer-2
+#| fig-width: 6
+#| fig-height: 3.2
+ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp)) +
+  geom_point()
+```
+
+Most countries are squeezed on the left: income is very skewed. A log scale fixes it.
+
+**Step 3.** Add a scale: logarithmic x axis with dollar labels (never `1e+04`).
+
+```{r}
+#| label: layer-3
+#| fig-width: 6
+#| fig-height: 3.2
+ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp)) +
+  geom_point() +
+  scale_x_log10(labels = label_dollar())
+```
+
+**Step 4.** Map more variables: colour by region (a new aesthetic, a new scale).
+
+```{r}
+#| label: layer-4
+#| fig-width: 6
+#| fig-height: 3.8
+ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp, colour = region)) +
+  geom_point(alpha = 0.8) +
+  scale_x_log10(labels = label_dollar()) +
+  scale_colour_manual(values = pal_regions)
+```
+
+**Step 5.** Labels and theme: the message in the title, units on the axes, the source.
+
+```{r}
+#| label: layer-5
+#| fig-width: 6
+#| fig-height: 4.2
+ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp, colour = region)) +
+  geom_point(alpha = 0.8) +
+  scale_x_log10(labels = label_dollar()) +
+  scale_colour_manual(values = pal_regions) +
+  guides(colour = guide_legend(nrow = 3, title.position = "top")) +
+  labs(
+    title = ttl("Richer countries live longer, but the gain flattens at the top"),
+    x = "GDP per capita, PPP (constant 2021 international $, log scale)",
+    y = "Life expectancy at birth (years)",
+    colour = "Region",
+    caption = src
+  ) +
+  theme_cours(base_size = 11)
+```
+
+::: {.callout-note}
+## Why `theme_cours()` already applies
+
+`R/theme_cours.R` calls `theme_set(theme_cours())`, so every plot uses the course theme by default. Writing `+ theme_cours(base_size = 11)` is only needed to change an argument (here, smaller text for small figures).
+:::
+
+## The Gapminder scatter ≈ 30 min
+
+This is the figure that made Hans Rosling famous: income, health, population and region on one plot. We add a fourth variable (population, as point **size**) and label a few countries with `ggrepel`, which moves labels so they do not overlap.
+
+```{r}
+#| label: gapminder
+#| fig-width: 9
+#| fig-height: 6
+focus <- c("China", "India", "Nigeria", "United States")
+
+ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp)) +
+  geom_point(aes(size = population, colour = region), alpha = 0.7) +
+  geom_text_repel(
+    data = filter(wdi_2022_ok, country %in% focus),
+    aes(label = country),
+    min.segment.length = 0, box.padding = 0.8, seed = 1, size = 4.2
+  ) +
+  scale_x_log10(labels = label_dollar()) +
+  scale_size_area(max_size = 16, labels = label_number(scale = 1e-6, suffix = " M"),
+                  breaks = c(1e7, 1e8, 1e9)) +
+  scale_colour_manual(values = pal_regions) +
+  guides(colour = guide_legend(nrow = 4, title.position = "top", override.aes = list(size = 4)),
+         size = guide_legend(title.position = "top")) +
+  labs(
+    title = ttl("Income and life expectancy rise together, but similar incomes can hide a 20-year gap"),
+    x = "GDP per capita, PPP (constant 2021 international $, log scale)",
+    y = "Life expectancy at birth (years)",
+    colour = "Region", size = "Population",
+    caption = cap("Year 2022. One point per country; countries with missing data are dropped.")
+  )
+```
+
+Reading tips:
+
+- The **x axis is logarithmic**: equal distances mean equal *percentage* differences in income. A move from \$2,000 to \$4,000 counts as much as from \$20,000 to \$40,000.
+- `scale_size_area()` makes the *area* proportional to population. The default `scale_size()` is also area-based but does not start at zero, which exaggerates small countries.
+- `geom_text_repel(data = ...)` takes **its own data**: only the four focus countries are labelled, the rest of the plot is unchanged. This is how you label a few points without clutter.
+- This is a cross-section, not a causal result: richer countries differ in many other ways (institutions, climate, disease burden). The curve describes, it does not say that money *causes* longevity.
+
+::: {.callout-tip}
+## Exercise 5.1
+
+Using `wdi_2022_ok`, draw a scatter of life expectancy (y) against **electricity access** (x, % of population), coloured by `income` group. Drop missing values first, give it a message title and labelled axes.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+#| label: ex-5-1
+#| fig-width: 8
+#| fig-height: 5
+wdi_2022 |>
+  drop_na(elec_access, life_exp, income) |>
+  ggplot(aes(x = elec_access, y = life_exp, colour = income)) +
+  geom_point(alpha = 0.8, size = 2) +
+  scale_x_continuous(labels = label_number(suffix = "%")) +
+  scale_colour_manual(values = c("Low income" = "#D55E00", "Lower middle income" = "#E69F00",
+                                 "Upper middle income" = "#56B4E9", "High income" = "#0072B2")) +
+  labs(
+    title = ttl("Countries without universal electricity have markedly lower life expectancy"),
+    x = "Population with access to electricity (%)",
+    y = "Life expectancy at birth (years)",
+    colour = "Income group",
+    caption = cap("Year 2022.")
+  )
+```
+:::
+
+## Lines: change over time ≈ 25 min
+
+A line connects observations **in a meaningful order** (here, years) for the **same unit** (here, a country). You must tell ggplot which points belong together with `group` (or with `colour`, which groups implicitly).
+
+The dataviz principle of the workshop: **signal versus context**. If everything is coloured, nothing stands out. Draw the context in grey first, then the signal on top, in colour.
+
+```{r}
+#| label: lines
+#| fig-width: 9
+#| fig-height: 5.5
+compare <- c("India", "China", "Nigeria", "Brazil", "United States", "Germany", "Japan", "Bangladesh")
+highlight <- "India"
+
+life_lines <- wdi |>
+  filter(country %in% compare) |>
+  drop_na(life_exp)
+
+ggplot(life_lines, aes(x = year, y = life_exp, group = country)) +
+  geom_line(data = filter(life_lines, country != highlight),
+            colour = pal_cours[["gris"]], linewidth = 0.8) +
+  geom_line(data = filter(life_lines, country == highlight),
+            colour = pal_cours[["accent"]], linewidth = 1.6) +
+  geom_text_repel(data = filter(life_lines, year == max(year)),
+                  aes(label = country, colour = country == highlight),
+                  hjust = 0, direction = "y", xlim = c(2023.4, NA), size = 4,
+                  segment.color = NA, show.legend = FALSE, seed = 1) +
+  scale_colour_manual(values = c(`TRUE` = pal_cours[["accent"]], `FALSE` = "grey40")) +
+  scale_x_continuous(breaks = seq(2000, 2020, 5), expand = expansion(mult = c(0.02, 0.02))) +
+  coord_cartesian(xlim = c(2000, 2027), clip = "off") +
+  labs(
+    title = ttl("India gained nine years of life expectancy since 2000, more than Brazil or China"),
+    x = "Year",
+    y = "Life expectancy at birth (years)",
+    caption = cap("India in red; seven comparison countries in grey.")
+  )
+```
+
+Points to notice:
+
+- Two `geom_line()` layers, each with its own `data`: grey context first, red signal on top.
+- Labels sit at the **end of the lines** (`year == max(year)`), so no legend is needed. Direct labelling is faster to read than a legend.
+- `coord_cartesian(xlim = ...)` leaves room on the right for the labels, and `geom_text_repel(direction = "y")` pushes them apart vertically so they do not overlap.
+- The 2020-2021 dip is visible for several countries: COVID-19 excess mortality.
+- Old code used `size =` for line width. In current ggplot2 it is `linewidth =`.
+
+::: {.callout-tip}
+## Exercise 5.2
+
+For each region, compute the **median life expectancy** per year (use `wdi`). Draw one line per region with the colours of `pal_regions`, labelled directly at the right end (no legend). Title: the message.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+#| label: ex-5-2
+#| fig-width: 9
+#| fig-height: 7
+life_region <- wdi |>
+  drop_na(life_exp) |>
+  summarise(life_med = median(life_exp), .by = c(region, year))
+
+ggplot(life_region, aes(x = year, y = life_med, colour = region)) +
+  geom_line(linewidth = 1.1) +
+  geom_text_repel(
+    data = filter(life_region, year == max(year)),
+    aes(label = str_wrap(region, 20)),
+    hjust = 0, direction = "y", xlim = c(2023.4, NA), size = 3.4, lineheight = 0.85,
+    segment.color = NA, show.legend = FALSE
+  ) +
+  scale_colour_manual(values = pal_regions, guide = "none") +
+  scale_x_continuous(breaks = seq(2000, 2020, 5), expand = expansion(mult = c(0.02, 0.05))) +
+  coord_cartesian(xlim = c(2000, 2028), clip = "off") +
+  labs(
+    title = ttl("Sub-Saharan Africa gained 12 years since 2000 but still trails every other region"),
+    x = "Year",
+    y = "Median life expectancy at birth (years)",
+    caption = cap("Median across countries of each region (countries are not weighted by population).")
+  )
+```
+:::
+
+## Bars: comparing groups ≈ 25 min
+
+Two different bar charts, two different geoms:
+
+| You have... | Use | What it does |
+|---|---|---|
+| raw rows, you want **counts** | `geom_bar()` | counts rows for you |
+| an already computed number per group | `geom_col()` | uses your `y` as the bar height |
+
+(The old course wrote `geom_bar(stat = "identity")`. `geom_col()` is the same thing, clearer.)
+
+### Values: median GDP per capita by region, sorted
+
+Two rules for bar charts: start at **zero**, and **sort** the bars. For text categories, put the long labels on the vertical axis (horizontal bars). `fct_reorder()` sorts a factor by another variable.
+
+```{r}
+#| label: bars-col
+#| fig-width: 9
+#| fig-height: 4.5
+gdp_region <- wdi_2022_ok |>
+  summarise(gdp_med = median(gdp_pc_ppp), n_countries = n(), .by = region)
+
+gdp_region |>
+  mutate(region = fct_reorder(region, gdp_med)) |>
+  ggplot(aes(x = gdp_med, y = region)) +
+  geom_col(fill = pal_cours[["principal"]], width = 0.7) +
+  geom_text(aes(label = label_dollar(accuracy = 1)(gdp_med)), hjust = -0.1, size = 4) +
+  scale_x_continuous(labels = label_dollar(), expand = expansion(mult = c(0, 0.15))) +
+  scale_y_discrete(labels = label_wrap(28)) +
+  labs(
+    title = ttl("A typical North American country is about seven times richer than one in South Asia"),
+    x = "Median GDP per capita, PPP (constant 2021 international $)",
+    y = NULL,
+    caption = cap("Year 2022. Median across countries; North America has only 3 countries.")
+  )
+```
+
+### Counts: number of countries by income group
+
+Income groups have a natural order (low to high), so we turn the column into an **ordered factor** by hand. Alphabetical order would put "High income" first.
+
+```{r}
+#| label: bars-count
+#| fig-width: 8
+#| fig-height: 4.5
+niveaux <- c("Low income", "Lower middle income", "Upper middle income", "High income")
+
+wdi_2022 |>
+  mutate(income = factor(income, levels = niveaux, ordered = TRUE)) |>
+  ggplot(aes(x = income)) +
+  geom_bar(fill = pal_cours[["principal"]], width = 0.7) +
+  geom_text(aes(label = after_stat(count)), stat = "count", vjust = -0.4, size = 4.5) +
+  scale_x_discrete(labels = label_wrap(14)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+  labs(
+    title = ttl("High-income countries are the largest group, but 25 countries are still low-income"),
+    x = "World Bank income group",
+    y = "Number of countries",
+    caption = cap("Year 2022, all economies in the WDI panel.")
+  )
+```
+
+::: {.callout-tip}
+## Exercise 5.3
+
+Show the **ten richest countries** in 2022 (GDP per capita, PPP) as sorted horizontal bars. Use `slice_max()`, not `top_n()` (superseded). Colour the bars by region with `pal_regions`.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+#| label: ex-5-3
+#| fig-width: 8
+#| fig-height: 5
+wdi_2022_ok |>
+  slice_max(gdp_pc_ppp, n = 10) |>
+  mutate(country = fct_reorder(country, gdp_pc_ppp)) |>
+  ggplot(aes(x = gdp_pc_ppp, y = country, fill = region)) +
+  geom_col(width = 0.7) +
+  scale_x_continuous(labels = label_dollar(), expand = expansion(mult = c(0, 0.05))) +
+  scale_fill_manual(values = pal_regions) +
+  labs(
+    title = ttl("The richest countries are small economies, mostly in Europe and the Gulf"),
+    x = "GDP per capita, PPP (constant 2021 international $)",
+    y = NULL, fill = "Region",
+    caption = cap("Year 2022.")
+  )
+```
+:::
+
+## Distributions ≈ 25 min
+
+To see how a variable is spread **across countries**, use one observation per country: `wdi_2022_ok`. (Pooling all years would count each country 24 times, and the observations would not be independent.)
+
+### Histogram and density
+
+GDP per capita is very right-skewed, so we work on a **log scale**. We pick the bin width on that scale (here `bins = 25`) and compare a few values: too few bins hide structure, too many show noise. Putting the histogram on the *density* scale lets us overlay a smooth density curve.
+
+```{r}
+#| label: histogram
+#| fig-width: 8
+#| fig-height: 4.5
+ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 25,
+                 fill = pal_cours[["principal"]], alpha = 0.6, colour = "white") +
+  geom_density(colour = pal_cours[["accent"]], linewidth = 1) +
+  scale_x_log10(labels = label_dollar()) +
+  labs(
+    title = ttl("World incomes span more than a 100-fold range, with no single typical country"),
+    x = "GDP per capita, PPP (constant 2021 international $, log scale)",
+    y = "Density",
+    caption = cap("Year 2022. One observation per country; red line = kernel density estimate.")
+  )
+```
+
+### Boxplot by group
+
+A boxplot shows the median (line), the middle half of observations (box) and unusual values (points). Add the individual countries with a light jitter, so the reader sees how many observations sit behind each box.
+
+```{r}
+#| label: boxplot
+#| fig-width: 8
+#| fig-height: 5
+wdi_2022_ok |>
+  mutate(income = factor(income, levels = niveaux, ordered = TRUE)) |>
+  ggplot(aes(x = income, y = gdp_pc_ppp)) +
+  geom_boxplot(outliers = FALSE, fill = "grey92", colour = "grey30", width = 0.55) +
+  geom_jitter(width = 0.15, alpha = 0.5, colour = pal_cours[["principal"]], size = 1.6) +
+  scale_x_discrete(labels = label_wrap(14)) +
+  scale_y_log10(labels = label_dollar()) +
+  labs(
+    title = ttl("Income groups barely overlap, which is expected: they are defined by income"),
+    x = "World Bank income group",
+    y = "GDP per capita, PPP (constant 2021 international $, log scale)",
+    caption = cap("Year 2022. Box = quartiles and median; dots = individual countries.")
+  )
+```
+
+Why `outliers = FALSE`? Otherwise the boxplot draws the outliers *and* the jitter draws them again.
+
+::: {.callout-tip}
+## Exercise 5.4
+
+Compare the distribution of life expectancy in **2000 and 2022**. Use `facet_wrap(~ year)` on a histogram of life expectancy (one observation per country). What happened to the left tail?
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+#| label: ex-5-4
+#| fig-width: 9
+#| fig-height: 4.5
+wdi |>
+  filter(year %in% c(2000, 2022)) |>
+  drop_na(life_exp) |>
+  ggplot(aes(x = life_exp)) +
+  geom_histogram(binwidth = 2.5, fill = pal_cours[["principal"]], colour = "white") +
+  facet_wrap(~ year) +
+  labs(
+    title = ttl("The low-life-expectancy tail shrank between 2000 and 2022"),
+    x = "Life expectancy at birth (years)",
+    y = "Number of countries",
+    caption = cap("One observation per country and year.")
+  )
+```
+
+In 2000, 31 countries had a life expectancy below 55 years; in 2022 only 4 do. The whole distribution shifted to the right.
+:::
+
+## Maps ≈ 45 min
+
+A choropleth colours areas by a value. A good one needs four things: **all** the geometries, a **safe join**, a **readable scale**, and an honest **projection**. The old version of this course coloured three countries only, because it joined on country names and kept only matching rows.
+
+### 1. Geometries: one row per country, in an `sf` table
+
+`sf` ("simple features") stores each country's shape in a `geometry` column. The result behaves like a data frame: `dplyr` verbs work on it.
+
+```{r}
+#| label: ne-load
+world <- ne_countries(scale = "medium", returnclass = "sf") |>
+  filter(name != "Antarctica")          # no data there, and it eats a fifth of the map
+
+dim(world)
+world |>
+  st_drop_geometry() |>
+  select(name, iso_a3, iso_a3_eh, adm0_a3) |>
+  slice(1:5)
+```
+
+Natural Earth has several ISO-like codes. Which one matches the WDI `iso3c`? Do not guess: **test with `anti_join()`**, which keeps the rows of the left table that find no match.
+
+```{r}
+#| label: join-check
+# WDI countries with no match in the map, for each candidate code
+unmatched <- function(code) {
+  wdi_2022 |>
+    anti_join(st_drop_geometry(world), by = c("iso3c" = code)) |>
+    pull(country)
+}
+
+n_unmatched <- tibble(
+  code = c("iso_a3", "iso_a3_eh", "adm0_a3"),
+  n_wdi_unmatched = map_int(code, \(x) length(unmatched(x)))
+)
+n_unmatched
+
+unmatched("iso_a3_eh")
+```
+
+`iso_a3_eh` is the best key: only a few WDI economies are missing from the map. They are small or disputed territories (Channel Islands, Gibraltar, Kosovo, which has a non-standard code in Natural Earth). The reverse check shows map areas without WDI data:
+
+```{r}
+#| label: join-check-reverse
+world |>
+  st_drop_geometry() |>
+  anti_join(wdi_2022, by = c("iso_a3_eh" = "iso3c")) |>
+  select(name, iso_a3_eh) |>
+  head(8)
+```
+
+Never join on country *names*: "Russian Federation" (WDI) is "Russia" (Natural Earth), "Egypt, Arab Rep." is "Egypt". Codes are stable.
+
+### 2. Join and plot
+
+We start from the **map** (`left_join(world, data)`) so that every country keeps its shape, even without data. Those get `NA` and will be drawn in light grey.
+
+```{r}
+#| label: map-join
+world_gdp <- world |>
+  select(iso_a3_eh, geometry) |>
+  left_join(select(wdi_2022, iso3c, country, gdp_pc_ppp, elec_access),
+            by = c("iso_a3_eh" = "iso3c"))
+
+sum(is.na(world_gdp$gdp_pc_ppp))   # shapes drawn in grey (no data)
+```
+
+GDP per capita is skewed, so a continuous colour scale would make almost everything look the same. We **bin** the values into classes with round breakpoints and readable labels.
+
+```{r}
+#| label: map-gdp
+#| fig-width: 10
+#| fig-height: 5.8
+cuts   <- c(0, 2500, 5000, 10000, 20000, 40000, Inf)
+labs_g <- c("< $2,500", "$2,500-5,000", "$5,000-10,000", "$10,000-20,000",
+            "$20,000-40,000", "> $40,000")
+
+world_gdp |>
+  mutate(gdp_class = cut(gdp_pc_ppp, breaks = cuts, labels = labs_g, right = FALSE),
+         gdp_class = fct_na_value_to_level(gdp_class, "No data")) |>
+  ggplot() +
+  geom_sf(aes(fill = gdp_class), colour = "white", linewidth = 0.1) +
+  scale_fill_manual(values = c(setNames(hcl.colors(6, "YlGnBu", rev = TRUE), labs_g),
+                               "No data" = "grey85")) +
+  coord_sf(crs = "+proj=robin") +
+  guides(fill = guide_legend(nrow = 2, title.position = "top")) +
+  labs(
+    x = NULL, y = NULL,
+    title = ttl("Income per head is highest in the North and lowest across Sub-Saharan Africa and South Asia"),
+    fill = "GDP per capita, PPP (constant 2021 international $)",
+    caption = cap("Year 2022. Light grey: no data.")
+  ) +
+  theme(axis.text = element_blank(), panel.grid.major = element_line(colour = "grey94"))
+```
+
+What makes this map honest:
+
+- **All countries** are drawn. Missing data get their own level, "No data", in light grey (`fct_na_value_to_level()` turns `NA` into a real factor level so that it appears in the legend).
+- **Binned scale** with round breaks and labels written in dollars, not `1e+04`.
+- **`coord_sf(crs = "+proj=robin")`**: Robinson projection, a compromise that distorts areas less than the default longitude/latitude rectangle. A string like `"+proj=robin"` is a PROJ definition; `"EPSG:4326"` would give plain lat/long.
+- Area is not population: Russia and Canada look large, India small. A choropleth of an *intensive* variable (per capita) is fair; one of *totals* would mislead.
+
+::: {.callout-tip}
+## Exercise 5.5
+
+Map **access to electricity** (% of population) in 2022 for all countries, in bins (for example below 50%, 50-80%, 80-99%, 99-100%). Then **annotate the three countries with the lowest access**, with their names and values. Hint: use `slice_min()` to find them and `st_point_on_surface()` for a label position inside each country. (We use the lowest, not the highest: more than 100 countries are at 100%, so "top 3" would be an arbitrary tie.)
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+#| label: ex-5-5
+#| fig-width: 10
+#| fig-height: 5.8
+bottom3 <- world_gdp |>
+  drop_na(elec_access) |>
+  slice_min(elec_access, n = 3, with_ties = FALSE) |>
+  mutate(label = paste0(country, "\n", round(elec_access), "%")) |>
+  st_point_on_surface()                       # one point inside each polygon
+
+bottom3$label                                  # check which countries are annotated
+
+world_gdp |>
+  mutate(elec_class = cut(elec_access, breaks = c(0, 50, 80, 99, 100.01),
+                          labels = c("< 50%", "50-80%", "80-99%", "99-100%"),
+                          right = FALSE),
+         elec_class = fct_na_value_to_level(elec_class, "No data")) |>
+  ggplot() +
+  geom_sf(aes(fill = elec_class), colour = "white", linewidth = 0.1) +
+  geom_label_repel(data = bottom3, aes(label = label, geometry = geometry),
+                   stat = "sf_coordinates", size = 3.4, nudge_y = -4e6, nudge_x = 2e6,
+                   min.segment.length = 0, seed = 1) +
+  scale_fill_manual(values = c("< 50%" = "#08306b", "50-80%" = "#2171b5", "80-99%" = "#9ecae1",
+                               "99-100%" = "#eff3ff", "No data" = "grey85")) +
+  coord_sf(crs = "+proj=robin") +
+  guides(fill = guide_legend(nrow = 2, title.position = "top")) +
+  labs(
+    x = NULL, y = NULL,
+    title = ttl("Electricity is nearly universal outside Sub-Saharan Africa, where eight countries are below 20%"),
+    fill = "Population with access to electricity",
+    caption = cap("Year 2022. Labels: the three countries with the lowest access. Light grey: no data.")
+  ) +
+  theme(axis.text = element_blank(), panel.grid.major = element_line(colour = "grey94"))
+```
+:::
+
+## Saving figures ≈ 10 min
+
+In a report, the figure on screen is not the figure in the file. Save with **explicit size and resolution** so the output is identical on every computer. Store the plot in an object, then call `ggsave()`.
+
+```{r}
+#| label: save
+#| eval: false
+dir.create(here("output"), showWarnings = FALSE)   # output/ is created if missing
+
+p_gapminder <- ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp, colour = region)) +
+  geom_point() +
+  scale_x_log10(labels = label_dollar())
+
+ggsave(here("output", "gapminder.png"), plot = p_gapminder,
+       width = 8, height = 5, units = "in", dpi = 300)    # for Word / slides
+ggsave(here("output", "gapminder.pdf"), plot = p_gapminder,
+       width = 8, height = 5)                             # vector, for LaTeX
+```
+
+- `width` and `height` are in inches (`units = "cm"` is possible). Choose them to match the final placement; do not resize in Word.
+- 300 dpi is the standard for print; 150 is enough for the web.
+- Without `plot =`, `ggsave()` saves the **last plot displayed**, which is fragile in a script.
+- `here()` builds the path from the project root, so the code runs on any machine.
+
+::: {.callout-tip}
+## Exercise 5.6
+
+Make a boxplot of **life expectancy by region** (2022, one point per country), regions sorted by median, horizontal, and save it as a 300 dpi PNG in `output/`. The save chunk must not be evaluated when the page is rendered.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+#| label: ex-5-6
+#| fig-width: 8
+#| fig-height: 5
+p_life_region <- wdi_2022 |>
+  drop_na(life_exp) |>
+  mutate(region = fct_reorder(region, life_exp, .fun = median)) |>
+  ggplot(aes(x = life_exp, y = region)) +
+  geom_boxplot(fill = "grey92", colour = "grey30", width = 0.55) +
+  scale_y_discrete(labels = label_wrap(28)) +
+  labs(
+    title = ttl("Life expectancy varies far more within Sub-Saharan Africa than within any other region"),
+    x = "Life expectancy at birth (years)",
+    y = NULL,
+    caption = cap("Year 2022. One observation per country.")
+  )
+
+p_life_region
+```
+
+```{r}
+#| label: ex-5-6-save
+#| eval: false
+dir.create(here("output"), showWarnings = FALSE)
+ggsave(here("output", "life_exp_region.png"), plot = p_life_region,
+       width = 8, height = 5, dpi = 300)
+```
+:::
+
+## Key takeaways
+
+- A ggplot is a stack of independent layers: data, aesthetics, geoms, scales, labels, theme. Learn the grammar, not the recipes.
+- `aes()` maps variables; arguments outside `aes()` set constants.
+- Log scales and `scales::label_dollar()` / `label_number()` make skewed development data readable. Never leave `1e+04` on an axis.
+- Title = the message; axes with units; caption with the source. Direct labels beat legends.
+- Highlight one series in colour and grey out the rest (signal vs context). Sort bars, start them at zero, use `geom_col()` for values and `geom_bar()` for counts.
+- For distributions, use one observation per country; do not pool years and call them independent.
+- Maps: keep all shapes, join on **codes** (not names), check with `anti_join()`, bin skewed values, use a projection, grey for missing data.
+- Save with `ggsave()` and explicit `width`, `height`, `dpi`.
+
+Next: [Session 6: Advanced visualisation and Quarto reports](seance-6.qmd).

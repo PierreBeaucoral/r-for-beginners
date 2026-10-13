@@ -1,0 +1,11 @@
+format:
+  revealjs:
+    theme: [default, slides.scss]
+    width: 1280
+    height: 720
+    slide-number: true
+    embed-resources: false
+    code-line-numbers: false
+    code-copy: true
+    code-overflow: wrap
+    link-external-newwindow: true

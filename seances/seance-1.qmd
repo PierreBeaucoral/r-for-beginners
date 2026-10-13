@@ -1,0 +1,527 @@
+---
+title: "Session 1: Getting started with R and RStudio"
+subtitle: "Interface, projects, objects, functions, packages, vectors and data frames"
+---
+
+```{r}
+#| label: setup
+library(tidyverse)
+Sys.setenv(LANGUAGE = "en")  # error messages in English
+```
+
+::: {.objectifs}
+Session objectives
+
+- Install R and RStudio and find your way around the four panes.
+- Work inside an RStudio Project and build file paths with `here::here()`.
+- Create objects, call functions, and read a help page.
+- Tell installing a package from loading it, and read the three most common error messages.
+- Manipulate vectors (including missing values) and data frames in base R.
+- Compute GDP per capita for three countries: the first step of our common thread.
+:::
+
+## What are R and RStudio? {#sec-what}
+
+≈ 15 min. **R** is a programming language for statistics and data analysis. **RStudio** (now from Posit) is the editor we use to write and run R code. R is the engine, RStudio is the dashboard.
+
+Why R for an economist?
+
+- **Free and open source**: your code runs the same on any machine, now and in five years.
+- **Packages**: thousands of extensions on CRAN (the official archive) for data wrangling, econometrics, maps, text analysis.
+- **Reproducible**: code, results and text live in one document (Quarto, session 6).
+- **Widely used** in academia, central banks and international organisations, with a large community.
+
+### Installing
+
+Install in this order: first R from [CRAN](https://cran.r-project.org/), then RStudio Desktop from [Posit](https://posit.co/download/rstudio-desktop/). The chapter [Starting with R and RStudio](https://rstudio-education.github.io/hopr/starting.html) of *Hands-On Programming with R* walks through both installations with screenshots.
+
+### The four panes
+
+![The four RStudio panes. Source: [Posit documentation, RStudio panes](https://docs.posit.co/ide/user/ide/guide/ui/ui-panes.html).](../assets/rstudio-panes-labeled.jpeg)
+
+| Pane | What it is for |
+|---|---|
+| **Source** (top left) | Your scripts (`.R` files). This is where you write code you want to keep. |
+| **Console** (bottom left) | Where R runs the code and prints results. Good for quick tests. |
+| **Environment** (top right) | The objects currently in memory. |
+| **Files / Plots / Packages / Help** (bottom right) | File browser, charts, installed packages, help pages. |
+
+## RStudio Projects and file paths {#sec-projects}
+
+≈ 20 min. Do this from day one, it will save you hours later.
+
+An **RStudio Project** is a folder with a `.Rproj` file. When you open it, RStudio sets the working directory to that folder, so every path can be written *relative to the project*.
+
+1. `File > New Project > New Directory > New Project`. Name it `r-course` and choose where to put it.
+2. Inside the project folder, create a sub-folder `data/` (Files pane > *New Folder*). All data files go there.
+3. Create a script: `File > New File > R Script`, save it as `session1.R` in the project folder.
+
+Your project folder now looks like this:
+
+```
+r-course/
+├── r-course.Rproj
+├── session1.R
+└── data/
+    └── (your data files)
+```
+
+### Why `here::here()` and never `setwd()`
+
+Many tutorials start scripts with `setwd("/Users/john/Desktop/course")`. **Never do this.** That path exists only on your own computer: the script breaks on any other machine (your colleague's, your supervisor's, yours in six months). Never write `setwd()` with a path from your own computer in a script you share.
+
+Instead, the `here` package builds paths from the project root, wherever the project sits:
+
+```{r}
+#| eval: false
+# Builds "<project root>/data/wdi_panel.csv" on any computer
+here::here("data", "wdi_panel.csv")
+
+# Used inside a reading function (session 2)
+wdi <- read_csv(here::here("data", "wdi_panel.csv"))
+```
+
+The rule for the whole course: **one project per course or paper, data in `data/`, paths with `here::here()`**.
+
+## Scripts, console and comments {#sec-scripts}
+
+≈ 15 min. You can type in the console, but what you type is lost. Code you want to keep goes in a **script**.
+
+- Write code in the script, then run the current line (or the selected lines) with `Ctrl + Enter` (Windows/Linux) or `Cmd + Enter` (Mac). R sends it to the console.
+- Run the whole script with `Ctrl/Cmd + Shift + Enter`.
+- Everything after `#` on a line is a **comment**: R ignores it. Comment the *why*, not the obvious.
+
+```{r}
+# A comment: R ignores this line
+2 + 2   # a comment can also follow code
+```
+
+Good habit: a script should run from top to bottom in a fresh R session and give the same results. If it does not, something is hidden in your environment.
+
+## Objects, types and operators {#sec-objects}
+
+≈ 30 min. An **object** is a name attached to a value. We create it with the assignment arrow `<-` (shortcut `Alt + -` on Windows, `Option + -` on Mac).
+
+```{r}
+gdp_usa <- 20.9          # numeric
+country <- "United States"  # character (text, always in quotes)
+is_rich <- TRUE          # logical (TRUE or FALSE, no quotes)
+
+gdp_usa
+country
+is_rich
+```
+
+Three basic types: **numeric** (numbers), **character** (text), **logical** (`TRUE`/`FALSE`). `class()` tells you which one you have:
+
+```{r}
+class(gdp_usa)
+class(country)
+class(is_rich)
+```
+
+Naming rules: letters, digits, `_` and `.`, no spaces, not starting with a digit. R is case-sensitive (`gdp` and `GDP` are different objects). Do not reuse names of existing functions (`sum`, `mean`, `summary`, `data`): it works until the day it causes a confusing bug. Use descriptive names such as `total_gdp`.
+
+### Arithmetic and logical operators
+
+```{r}
+3 + 5      # addition
+10 - 4     # subtraction
+6 * 7      # multiplication
+20 / 4     # division
+2^3        # power
+17 %/% 5   # integer division
+17 %% 5    # remainder
+```
+
+Comparisons return a logical value:
+
+```{r}
+3 == 3     # equal (two equal signs!)
+5 != 4     # different
+7 > 5
+2 < 6
+4 >= 4
+```
+
+Combine conditions with `&` (and), `|` (or) and `!` (not):
+
+```{r}
+TRUE & FALSE
+TRUE | FALSE
+!TRUE
+```
+
+A frequent mistake: `=` assigns and `==` compares. Use `<-` to assign and keep `=` for function arguments.
+
+### Functions and arguments
+
+A **function** takes inputs (arguments) between parentheses and returns a result. Arguments can be given by position or by name.
+
+```{r}
+sqrt(16)
+round(3.14159, digits = 2)
+round(3.14159, 2)      # same, by position
+mean(c(4, 8, 15, 16, 23, 42))
+```
+
+You can store a result in a new object and reuse it:
+
+```{r}
+total_gdp <- sum(20.9, 14.7, 2.7)
+total_gdp
+```
+
+## Getting help {#sec-help}
+
+≈ 15 min. Nobody remembers every function. Knowing how to find help is the skill.
+
+- `?mean` or `help("mean")` opens the help page of a function (in the Help pane).
+- `??regression` searches all installed help pages for a word.
+- Vignettes and package websites (e.g. [tidyverse.org](https://www.tidyverse.org/)) give worked examples.
+- Search the exact error message online: someone has already had it.
+
+```{r}
+#| eval: false
+?mean
+help("round")
+```
+
+How to read a help page, in this order:
+
+1. **Description**: what the function does, in one line.
+2. **Usage**: the arguments and their default values. `mean(x, trim = 0, na.rm = FALSE, ...)` tells you `na.rm` is `FALSE` unless you change it.
+3. **Arguments**: what each one means.
+4. **Value**: what you get back.
+5. **Examples** at the bottom: copy them into your console and run them. Often the fastest way to understand.
+
+::: {.callout-note}
+## Using AI assistants
+
+ChatGPT, Claude, Copilot and similar tools are useful to **explain an error message** or to remind you of a function's syntax. Three rules:
+
+- Always run the code and check it does what you asked; AI code can be wrong or use outdated functions.
+- If you cannot explain a line, do not keep it. You are responsible for every result you hand in.
+- Never paste confidential or personal data into a public tool.
+
+Learn the basics first: you cannot check an answer you do not understand.
+:::
+
+## Packages: install once, load every time {#sec-packages}
+
+≈ 15 min. Base R is small. Most of what we use comes from **packages**. Two distinct steps:
+
+1. **Install** (once per computer): download the package from CRAN. Type this **in the console**, never in a script you share.
+2. **Load** (in every session): `library()` makes its functions available. Put the `library()` calls at the **top of your script**.
+
+```{r}
+#| eval: false
+# Step 1, once, in the console
+install.packages("tidyverse")
+install.packages("here")
+
+# Step 2, at the top of every script
+library(tidyverse)
+```
+
+`tidyverse` is a bundle of packages (`ggplot2`, `dplyr`, `tibble`, `readr`, …) that we use throughout the course. For packages we use only once, `package::function()` (as in `here::here()`) calls a function without loading the whole package.
+
+## Reading error messages {#sec-errors}
+
+≈ 20 min. You will get errors every day, including in ten years. An error is not a failure: R is telling you what it could not do. Read the message, then look at the line it points to. Here are the three you will meet most.
+
+**1. `object 'xxx' not found`**: you use a name that does not exist. Typo, wrong case, or you forgot to run the line that creates it.
+
+```{r}
+#| error: true
+gdp_china <- 14.7
+gdp_chinaa + 1      # typo in the name
+```
+
+**2. `unexpected symbol` / `unexpected numeric constant` / `unexpected ','`**: the syntax is wrong, often a missing comma, quote or parenthesis. R tells you which element it did not expect (here the `2`, at line 1, character 5), so the mistake is just *before* it: the comma missing after the `1`.
+
+```{r}
+#| error: true
+c(1 2 3)            # missing commas
+```
+
+**3. `could not find function "xxx"`**: the function name is misspelled, or its package is not loaded. Here `feols()` comes from `fixest`, which we have not loaded with `library()`.
+
+```{r}
+#| error: true
+feols(gdp ~ year, data = tibble(gdp = 1:3, year = 1:3))
+```
+
+Method: (1) read the message aloud, (2) find the line, (3) check spelling, commas, quotes and parentheses, (4) check you ran the previous lines and loaded the package, (5) only then search online or ask an AI assistant, pasting the exact message.
+
+## Vectors {#sec-vectors}
+
+≈ 30 min. A **vector** is an ordered list of values of the *same type*. It is the building block of R: a column of a data set is a vector.
+
+```{r}
+population <- c(331, 1411, 1380)             # numeric
+countries  <- c("USA", "China", "India")     # character
+high_income <- c(TRUE, FALSE, FALSE)         # logical
+```
+
+Sequences and repetitions:
+
+```{r}
+1:10                      # integers from 1 to 10
+seq(1, 10, by = 2)        # step of 2
+seq(0, 1, length.out = 5) # 5 equally spaced values
+rep(5, times = 3)
+rep(c("a", "b"), each = 2)
+```
+
+### Indexing
+
+Square brackets select elements by **position** (starting at 1) or by **condition**:
+
+```{r}
+population[2]                # second element
+population[c(1, 3)]          # first and third
+population[-1]               # all except the first
+population[population > 1000]  # elements satisfying a condition
+countries[population > 1000]   # use one vector to filter another
+```
+
+### Vectorised operations
+
+Operations apply to every element at once, no loop needed.
+
+```{r}
+population + 2
+population * 1000000         # millions to persons
+population / sum(population) # share of the total
+```
+
+### Missing values
+
+`NA` means "value not available". It is not zero. Any calculation involving `NA` returns `NA`, because R cannot guess the missing value.
+
+```{r}
+gini <- c(41.5, 38.2, NA, 35.7)
+mean(gini)
+mean(gini, na.rm = TRUE)   # na.rm = TRUE: drop NAs before computing
+is.na(gini)
+sum(is.na(gini))           # how many missing values
+```
+
+`na.rm = TRUE` is a choice, not a reflex: ask *why* the value is missing and whether dropping it biases the result (in WDI, Gini is missing for many poor countries).
+
+## Data frames and tibbles {#sec-dataframes}
+
+≈ 30 min. A **data frame** is a table: each column is a vector, all of the same length. A **tibble** is the tidyverse version of a data frame, with a cleaner display. We will use tibbles throughout.
+
+Our common thread starts here: three countries, with **rounded 2020 values** (GDP in current US$ billions, population in millions; approximate figures for teaching, from the World Bank WDI).
+
+```{r}
+countries3 <- tibble(
+  country    = c("United States", "China", "India"),
+  gdp_bn     = c(20894, 14688, 2671),   # GDP, current US$ billions, rounded 2020
+  pop_mn     = c(331, 1411, 1380),      # population, millions, rounded 2020
+  high_income = c(TRUE, FALSE, FALSE)
+)
+countries3
+```
+
+### Exploring a data frame
+
+```{r}
+nrow(countries3)     # number of rows
+ncol(countries3)     # number of columns
+names(countries3)    # column names
+str(countries3)      # structure: type of each column
+summary(countries3)  # quick statistics per column
+head(countries3, 2)  # first 2 rows
+```
+
+### Selecting columns and rows
+
+```{r}
+countries3$gdp_bn          # one column (a vector) with $
+countries3[1, ]            # first row, all columns
+countries3[ , "country"]   # all rows, one column
+countries3[2, "pop_mn"]    # one cell
+countries3[countries3$pop_mn > 1380, ]  # rows satisfying a condition
+```
+
+The pattern is `data[rows, columns]`. Leaving one side empty means "all".
+
+### Adding a column
+
+```{r}
+countries3$gdp_pc <- countries3$gdp_bn * 1000 / countries3$pop_mn
+countries3
+```
+
+Units: GDP in billions divided by population in millions gives thousands of dollars per person, so we multiply by 1000 to get US$ per person.
+
+### Sorting and filtering (base R)
+
+```{r}
+# Sort by GDP per capita, highest first
+countries3[order(countries3$gdp_pc, decreasing = TRUE), ]
+
+# Keep only countries with more than 1,000 million inhabitants
+countries3[countries3$pop_mn > 1000, ]
+```
+
+This works but is heavy to write. In session 3, `dplyr` will make it readable (`arrange()`, `filter()`, `mutate()`).
+
+### Running thread: GDP per capita of three countries
+
+```{r}
+countries3[order(countries3$gdp_pc, decreasing = TRUE), c("country", "gdp_pc")]
+```
+
+The US produces about six times more per person than China and about thirty-three times more than India (rounded 2020 values, current US$, so not adjusted for price differences between countries). Starting from session 2, we use the full World Bank data set with all countries.
+
+## Exercises {#sec-exercises}
+
+≈ 35 min.
+
+::: {.callout-tip}
+## Exercise 1.1
+Create an object `my_age` with your age, an object `my_name` with your name, and an object `is_student` with a logical value. Display the three, then check the class of each.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+my_age <- 25
+my_name <- "Pierre"
+is_student <- TRUE
+
+my_age
+my_name
+is_student
+
+class(my_age)
+class(my_name)
+class(is_student)
+```
+:::
+
+::: {.callout-tip}
+## Exercise 1.2
+Create `x <- 12` and `y <- 5`. Compute their sum, difference, product and quotient. Then check whether `x` is greater than `y` and whether `x` is divisible by `y` (hint: remainder `%%`).
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+x <- 12
+y <- 5
+
+x + y
+x - y
+x * y
+x / y
+
+x > y
+x %% y == 0   # FALSE: the remainder is 2
+```
+:::
+
+::: {.callout-tip}
+## Exercise 1.3
+Open the help page of `round()`. What does the argument `digits` do, and what is its default value? Then round `pi` to 3 decimals.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+#| eval: false
+?round
+```
+
+`digits` is the number of decimal places; the default is `0`.
+
+```{r}
+round(pi, digits = 3)
+```
+:::
+
+::: {.callout-tip}
+## Exercise 1.4
+Create a numeric vector `gdp_growth` with the values 2.3, 5.1, NA, 3.8, -0.4 (annual growth rates in %). Compute its mean with and without the missing value, then select the years with growth above 2.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+gdp_growth <- c(2.3, 5.1, NA, 3.8, -0.4)
+
+mean(gdp_growth)                 # NA
+mean(gdp_growth, na.rm = TRUE)   # 2.7
+
+# Careful: comparing with NA gives NA, so use na.rm-style logic
+gdp_growth[!is.na(gdp_growth) & gdp_growth > 2]
+```
+:::
+
+::: {.callout-tip}
+## Exercise 1.5
+Create the vector `1:10` and then, with a single operation each, (a) the vector of its squares, (b) only the even numbers (hint: `%% 2 == 0`), (c) the odd numbers from 1 to 9 with `seq()`.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+v <- 1:10
+
+v^2
+v[v %% 2 == 0]
+seq(1, 9, by = 2)
+```
+:::
+
+::: {.callout-tip}
+## Exercise 1.6
+Create a data frame `students` with three columns `name`, `age`, `is_student` and four rows (invent them). Then: (a) display the `age` column, (b) display the first row, (c) keep the rows with `age` strictly greater than 20, **whatever their student status**, (d) sort by age.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+students <- tibble(
+  name       = c("Alice", "Bob", "Charlie", "Dalia"),
+  age        = c(19, 24, 31, 22),
+  is_student = c(TRUE, TRUE, FALSE, TRUE)
+)
+
+students$age                       # (a)
+students[1, ]                      # (b)
+students[students$age > 20, ]      # (c) condition on age only
+students[order(students$age), ]    # (d)
+```
+:::
+
+::: {.callout-tip}
+## Exercise 1.7
+Using `countries3`, add a column `gdp_share` equal to each country's share of the three countries' total GDP, in %. Then display the countries sorted by `gdp_share`, highest first.
+:::
+
+::: {.callout-note collapse="true"}
+## Solution
+```{r}
+countries3$gdp_share <- 100 * countries3$gdp_bn / sum(countries3$gdp_bn)
+
+countries3[order(countries3$gdp_share, decreasing = TRUE),
+           c("country", "gdp_share")]
+```
+:::
+
+## Key takeaways {#sec-takeaways}
+
+- Work in an **RStudio Project**, keep data in `data/`, and build paths with `here::here()`. Never use `setwd()` with a path from your own computer.
+- Write code in a **script**, run it with `Ctrl/Cmd + Enter`, and comment the *why*.
+- Create objects with `<-`; the three basic types are numeric, character and logical. Do not name objects after functions (`sum`, `mean`, `summary`).
+- **Install** a package once (`install.packages()`, in the console), **load** it in each script (`library()`, at the top).
+- Read errors calmly: *object not found* (typo), *unexpected symbol* (syntax), *could not find function* (typo or package not loaded). `?function` opens the help page.
+- Operations on vectors are vectorised; `NA` is contagious, so use `na.rm = TRUE` knowingly.
+- A data frame is a set of vectors of equal length: `data$col`, `data[rows, cols]`. GDP per capita = GDP / population.
+
+Next: [Session 2: Importing and exporting data](seance-2.qmd).
