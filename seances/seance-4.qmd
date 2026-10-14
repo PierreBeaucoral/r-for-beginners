@@ -162,7 +162,8 @@ mm <- tibble(
 ggplot(cs, aes(gdp_pc_ppp)) +
   geom_histogram(bins = 30, fill = "grey80", colour = "white") +
   geom_vline(data = mm, aes(xintercept = value, colour = statistic), linewidth = 1.1) +
-  scale_colour_manual(values = c(Mean = pal_cours[["accent"]], Median = pal_cours[["principal"]])) +
+  scale_colour_manual(values = c(Mean = pal_cours[["accent"]], Median = pal_cours[["principal"]]),
+                      labels = c(Mean = "Mean", Median = "Median")) +
   scale_x_continuous(labels = label_dollar()) +
   labs(
     title = "A few rich countries drag the mean above the median",

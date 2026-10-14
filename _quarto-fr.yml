@@ -37,3 +37,7 @@ website:
 format:
   html:
     toc-title: "Sur cette page"
+
+# Typographie française : « Figure 1 : … » (espace avant les deux-points)
+crossref:
+  title-delim: "\u00a0:"   # espace insécable avant les deux-points

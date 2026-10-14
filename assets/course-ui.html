@@ -91,7 +91,43 @@ document.addEventListener("DOMContentLoaded", () => {
     button.parentElement.replaceChildren(link);
   }
 
-  // 7. Print: open folded code, and label solutions plainly.
+  // 7. Session pages: previous / next session at the bottom, from the same menu.
+  if (current) {
+    const i = items.indexOf(current);
+    const pager = document.createElement("nav");
+    pager.className = "session-pager";
+    pager.setAttribute("aria-label", fr ? "Séance précédente et suivante" : "Previous and next session");
+    const add = (a, cls, label) => {
+      if (!a) return pager.append(document.createElement("span"));
+      const link = document.createElement("a");
+      link.href = a.href; link.className = cls;
+      link.innerHTML = `<small>${label}</small><span></span>`;
+      link.querySelector("span").textContent = a.textContent.trim();
+      pager.append(link);
+    };
+    add(items[i - 1], "prev", fr ? "← Séance précédente" : "← Previous session");
+    add(items[i + 1], "next", fr ? "Séance suivante →" : "Next session →");
+    document.querySelector("main.content")?.append(pager);
+  }
+
+  // 8. French pages: translate the labels of the live R editor (quarto-live), which it renders in English.
+  if (fr && document.querySelector(".exercise-cell, .qwebr-code-cell, [class*='exercise']")) {
+    const words = { "Run Code": "Exécuter", "Start Over": "Recommencer", "R Code": "Code R",
+                    "Show Hint": "Indice", "Show Solution": "Solution", "Hint": "Indice", "Solution": "Solution",
+                    "Loading...": "Chargement…", "Copy": "Copier" };
+    const translate = root => {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        const key = n.nodeValue.trim();
+        if (words[key] && !n.parentElement.closest("pre, code, .cm-editor")) n.nodeValue = n.nodeValue.replace(key, words[key]);
+      }
+    };
+    translate(document.body);
+    new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => n.nodeType === 1 && translate(n))))
+      .observe(document.body, { childList: true, subtree: true });
+  }
+
+  // 9. Print: open folded code, and label solutions plainly.
   window.addEventListener("beforeprint", () => {
     document.querySelectorAll("details").forEach(d => { d.dataset.wasOpen = d.open; d.open = true; });
   });

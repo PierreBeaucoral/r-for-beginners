@@ -296,6 +296,16 @@ ol.chain li + li::before { content: "→"; color: var(--color-muted); margin-rig
 }
 @media (max-width: 420px) { .session-nav-label { display: none; } .session-nav a { min-width: 1.85rem; } }
 
+// Previous / next session (built by assets/course-ui.html)
+.session-pager { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-sm);
+  margin: var(--space-xl) 0 var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--color-rule); }
+.session-pager a { display: block; text-decoration: none; color: var(--color-ink); padding: .2rem 0; }
+.session-pager a small { display: block; color: var(--color-muted); font-size: .85rem; }
+.session-pager a span { font-family: var(--font-display); font-size: 1.1rem; font-weight: 600; }
+.session-pager a:hover span { color: var(--color-accent); text-decoration: underline; text-underline-offset: .2em; }
+.session-pager a.next { text-align: right; grid-column: 2; }
+@media print { .session-pager { display: none; } }
+
 // Mermaid diagrams (session pages): centred, never wider than the column
 .cell-output-display svg, pre.mermaid + svg, .mermaid svg { max-width: 100%; }
 .quarto-figure-center .mermaid, div.mermaid { text-align: center; }

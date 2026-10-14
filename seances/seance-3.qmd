@@ -319,7 +319,8 @@ gdp_n_region |>
   mutate(status = factor(status, levels = c("Lost (NA)", "Kept"))) |>
   ggplot(aes(x = countries, y = fct_reorder(region, countries, sum), fill = status)) +
   geom_col() +
-  scale_fill_manual(values = c(Kept = pal_cours[["principal"]], `Lost (NA)` = pal_cours[["accent"]])) +
+  scale_fill_manual(values = c(Kept = pal_cours[["principal"]], `Lost (NA)` = pal_cours[["accent"]]),
+                    labels = c(Kept = "Kept", `Lost (NA)` = "Lost (NA)")) +
   labs(title = "Dropping NAs removes countries unevenly across regions",
        x = "Number of countries, 2020", y = NULL, fill = NULL,
        caption = "Source: World Bank, World Development Indicators (WDI), 2020. GDP per capita (PPP).") +
@@ -593,7 +594,8 @@ naive |>
   ggplot(aes(x = years, y = country, fill = status)) +
   geom_col() +
   scale_fill_manual(values = c(`Gini found` = pal_cours[["principal"]],
-                               `Gini missing (NA)` = pal_cours[["accent"]])) +
+                               `Gini missing (NA)` = pal_cours[["accent"]]),
+                    labels = c(`Gini found` = "Gini found", `Gini missing (NA)` = "Gini missing (NA)")) +
   labs(title = "The join on names silently lost the United States",
        x = "Number of years (2000-2020)", y = NULL, fill = NULL,
        caption = "Source: World Bank WDI and World Inequality Database (WID).") +

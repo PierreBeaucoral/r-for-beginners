@@ -17,10 +17,15 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned: ubuntu-latest moves to 26 (GDAL/PROJ for maps)
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      # Le site ne doit exécuter aucun code R ici (readxl sur .xls plante R sous
+      # Linux) : chaque page doit avoir des résultats figés à jour (tools/freeze.sh).
+      - name: Vérifier les résultats figés (_freeze)
+        run: python3 tools/check_freeze.py
 
       # Bibliothèques système requises par sf / rnaturalearth (cartes)
       - name: Dépendances système (GDAL, PROJ, GEOS, udunits)
@@ -47,17 +52,17 @@ jobs:
         run: Rscript -e 'babelquarto::render_website(preview = FALSE)'
 
       - name: Préparer l'artefact Pages
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned: ubuntu-latest moves to 26 (GDAL/PROJ for maps)
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Déployer sur GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

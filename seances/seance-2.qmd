@@ -182,22 +182,22 @@ Opening a CSV in Excel and saving it back can **turn codes into dates** (the gen
 `read_excel()` reads `.xls` and `.xlsx` files. An Excel file can contain several **sheets**, so first list them:
 
 ```{r}
-path_xls <- here("data", "raw", "SCIM.xls")
-excel_sheets(path_xls)
+path_xlsx <- here("data", "raw", "SCIM.xlsx")
+excel_sheets(path_xlsx)
 ```
 
 Two sheets. By default `read_excel()` reads the first one. Choose a sheet by name or position with `sheet =`. Files made with French-language Excel often have French sheet names (`Feuil1`, `Feuil2`) and column names with accents or dashes (`Août-2022`); R needs backticks around such names.
 
 ```{r}
-scim_xls <- read_excel(path_xls, sheet = "Sheet1")
-dim(scim_xls)
-scim_xls[1:5, 1:6]
+scim_xlsx <- read_excel(path_xlsx, sheet = "Sheet1")
+dim(scim_xlsx)
+scim_xlsx[1:5, 1:6]
 ```
 
 This file is not the same as the CSV: it is in **wide format** (one column per month, one row per country), and the month names are in French. And the second sheet?
 
 ```{r}
-dim(read_excel(path_xls, sheet = "Feuil2"))
+dim(read_excel(path_xlsx, sheet = "Feuil2"))
 ```
 
 It is empty (0 rows, 0 columns); `Feuil2` is the French default name for "Sheet 2". Lesson: do not assume what a sheet contains.
@@ -205,7 +205,7 @@ It is empty (0 rows, 0 columns); `Feuil2` is the French default name for "Sheet 
 To read only part of a sheet, use `range =` (Excel notation):
 
 ```{r}
-read_excel(path_xls, sheet = "Sheet1", range = "A1:D6")
+read_excel(path_xlsx, sheet = "Sheet1", range = "A1:D6")
 ```
 
 ## 4. A hard import: the WID file
@@ -497,13 +497,13 @@ n_distinct(ex1$location)
 ::: {.callout-tip}
 ## Exercise 2.2
 
-From `data/raw/SCIM.xls`, read sheet `Sheet1`, but only the cells `A1:C11` (country and the first two months). Which country has the highest value in the first month column?
+From `data/raw/SCIM.xlsx`, read sheet `Sheet1`, but only the cells `A1:C11` (country and the first two months). Which country has the highest value in the first month column?
 :::
 
 ::: {.callout-note collapse="true"}
 ## Show solution
 ```{r}
-ex2 <- read_excel(here("data", "raw", "SCIM.xls"), sheet = "Sheet1", range = "A1:C11")
+ex2 <- read_excel(here("data", "raw", "SCIM.xlsx"), sheet = "Sheet1", range = "A1:C11")
 ex2
 ex2 |> slice_max(`Août-2022`, n = 1)   # backticks: accent and dash in the name
 ```

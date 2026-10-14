@@ -84,6 +84,9 @@ def parse(path):
                 skipping = False
                 s = strip_comment(ln)
                 s = REPLACEMENT.sub(r'\1"…"', s)
+                lab = re.search(r"\blabels\s*=\s*c\(", s)   # legend labels: c(value = "Label")
+                if lab:
+                    s = s[:lab.end()] + NAMED_VALUE.sub(r'\1"…"', s[lab.end():])
                 nstart = NAMED_CALL.search(s)
                 if ndepth > 0 or nstart:
                     seg = s[nstart.end():] if nstart and ndepth == 0 else s
