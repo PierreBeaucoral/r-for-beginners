@@ -107,6 +107,7 @@ Deux zones simulées, **même revenu moyen**, mais des sociétés très différe
 
 ```{r}
 #| label: sim-distrib
+#| fig-alt: "Deux courbes de densité de revenus simulés. La zone A forme un seul pic, la zone B deux pics séparés ; une ligne pointillée montre que les deux zones ont la même moyenne."
 #| fig-height: 5
 # Zone A : unimodale. Zone B : bimodale (deux groupes). Moyennes alignées par construction.
 set.seed(1)
@@ -176,6 +177,7 @@ Deux règles : texte d'au moins **12 pt** à la taille finale ; **faire ressorti
 
 ```{r}
 #| label: ugly-vs-good
+#| fig-alt: "Deux versions du même graphique de chômage simulé : à gauche, titre et axes non informatifs ; à droite, la série nationale mise en avant sur les régions grisées, avec un titre qui énonce le message."
 #| fig-width: 14
 #| fig-height: 5.6
 # Séries simulées : chômage national et 4 régions (décalages fixes, rien d'aléatoire)
@@ -216,6 +218,7 @@ p_ugly + p_good + plot_layout(widths = c(1, 1.25))
 
 ```{r}
 #| label: wdi-elec
+#| fig-alt: "Accès à l'électricité depuis 2000 pour quelques pays : le Bangladesh, mis en avant, approche les 100 % ; les autres pays sont en gris pour le contexte."
 wdi <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
 pays <- c("Ethiopia" = "Éthiopie", "Kenya" = "Kenya", "Nigeria" = "Nigeria",
           "Bangladesh" = "Bangladesh", "India" = "Inde")
@@ -279,6 +282,7 @@ Quand le message repose sur une estimation :
 
 ```{r}
 #| label: effect-ci
+#| fig-alt: "Effets estimés avec intervalles de confiance à 95 % : un effet positif en ville, l'effet à la campagne, et la différence ville-campagne, dont l'intervalle contient zéro (données simulées)."
 #| fig-height: 4.3
 df_eff <- tibble(
   groupe = c("Zones urbaines", "Zones rurales"),

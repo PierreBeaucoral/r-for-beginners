@@ -13,38 +13,76 @@ library(scales)
 source(here("R", "theme_cours.R"))
 ```
 
-This course is for **Master GPE** students (development economics). There are **no prerequisites**: we start from zero, install R, write our first lines of code, and finish with a reproducible report.
+Six sessions to learn R from scratch, for **Master GPE** students (development economics). **No prerequisites**: you start by installing R and finish with a reproducible report built on World Bank data.
 
-One development question runs through all six sessions, the **common thread** of the course:
+::: {.hero-actions}
+[Start Session 1](seances/seance-1.qmd){.btn .btn-primary .btn-lg}
+[Download the data](data.zip){.btn .btn-outline-primary .btn-lg}
+:::
 
-> **Growth, health and inequality: what does the data say about developing countries?**
+## The six sessions
 
-We start with three countries (United States, China, India), then move to all countries in the world using World Bank data. The last session ends with a figure for a "briefing note to the minister".
+```{=html}
+<div class="grid-cards">
+<a class="card-tile" href="seances/seance-1.html">
+<span class="num"><span class="visually-hidden">Session </span>1</span>
+<h3>Getting started with R and RStudio</h3>
+<p>Interface, objects, functions, packages, RStudio projects and paths with <code>here()</code>.</p>
+</a>
+<a class="card-tile" href="seances/seance-2.html">
+<span class="num"><span class="visually-hidden">Session </span>2</span>
+<h3>Importing and exporting data</h3>
+<p>CSV, Excel, malformed files; cleaning column names; saving your results.</p>
+</a>
+<a class="card-tile" href="seances/seance-3.html">
+<span class="num"><span class="visually-hidden">Session </span>3</span>
+<h3>Data manipulation</h3>
+<p><code>dplyr</code>, <code>tidyr</code>, joins: filter, transform, aggregate, merge sources.</p>
+</a>
+<a class="card-tile" href="seances/seance-4.html">
+<span class="num"><span class="visually-hidden">Session </span>4</span>
+<h3>Descriptive statistics and regression</h3>
+<p>Summarising data, correlations, linear regression and its limits.</p>
+</a>
+<a class="card-tile" href="seances/seance-5.html">
+<span class="num"><span class="visually-hidden">Session </span>5</span>
+<h3>Visualising with ggplot2 (and maps)</h3>
+<p>Grammar of graphics, scatter plots, time series, world maps.</p>
+</a>
+<a class="card-tile" href="seances/seance-6.html">
+<span class="num"><span class="visually-hidden">Session </span>6</span>
+<h3>Advanced visualisation and Quarto reports</h3>
+<p>Interactive charts, the final figure and a reproducible Quarto report.</p>
+</a>
+</div>
+```
 
-### The course in one picture
+::: {.secondary-links}
+**Also:** [Dataviz workshop](slides/atelier-dataviz.qmd) (slides, in French) · [Resources](resources.qmd): books, documentation, data sources
+:::
 
-```{mermaid}
-flowchart LR
-    S1["S1 R and RStudio"] --> S2["S2 Import"]
-    S2 --> S3["S3 Manipulate"]
-    S3 --> S4["S4 Describe"]
-    S4 --> S5["S5 Visualise"]
-    S5 --> S6["S6 Report"]
+## Where we are going
+
+> **Common thread: growth, health and inequality, what does the data say about developing countries?**
+
+```{=html}
+<ol class="chain" aria-label="The course as a chain of six sessions"><li><span>R and RStudio</span></li><li><span>Import</span></li><li><span>Manipulate</span></li><li><span>Describe</span></li><li><span>Visualise</span></li><li><span>Report</span></li></ol>
 ```
 
 **Import** data, **manipulate** it, **describe** it, **visualise** it, then **report** it: each session adds one link to the chain.
-
-### Where we are going
 
 By Session 5 you will produce charts like this one: **richer countries live longer, but the gain flattens out** (the "Preston curve"). Every point is a country; the area shows its population.
 
 ```{r}
 #| label: hero-preston
+#| fig-alt: "Bubble chart of life expectancy against GDP per capita (log scale) for countries in 2019, coloured by region, bubble area proportional to population. Life expectancy rises with income, with diminishing gains at higher incomes."
 #| code-fold: true
 #| code-summary: "Show the code (you will write this in Session 5)"
 #| fig-width: 8
 #| fig-height: 6.5
 wdi <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
+# CAF life expectancy is unreliable in this WDI release (14.7 in 2009, 18.8 in 2022): exclude every year
+wdi <- wdi |> mutate(life_exp = if_else(iso3c == "CAF", NA_real_, life_exp))
 
 wdi |>
   filter(year == 2019, !is.na(gdp_pc_ppp), !is.na(life_exp), !is.na(region)) |>
@@ -61,51 +99,6 @@ wdi |>
     colour = NULL,
     caption = "Source: World Bank, World Development Indicators (WDI), 2019. Bubble area = population."
   )
-```
-
-```{=html}
-<div class="grid-cards">
-<a class="card-tile" href="seances/seance-1.html">
-<span class="tag">Session 1</span>
-<h3>Getting started with R and RStudio</h3>
-<p>Interface, objects, functions, packages, RStudio projects and paths with <code>here()</code>.</p>
-</a>
-<a class="card-tile" href="seances/seance-2.html">
-<span class="tag">Session 2</span>
-<h3>Importing and exporting data</h3>
-<p>CSV, Excel, malformed files; cleaning column names; saving your results.</p>
-</a>
-<a class="card-tile" href="seances/seance-3.html">
-<span class="tag">Session 3</span>
-<h3>Data manipulation</h3>
-<p><code>dplyr</code>, <code>tidyr</code>, joins: filter, transform, aggregate, merge sources.</p>
-</a>
-<a class="card-tile" href="seances/seance-4.html">
-<span class="tag">Session 4</span>
-<h3>Descriptive statistics and regression</h3>
-<p>Summarising data, correlations, linear regression and its limits.</p>
-</a>
-<a class="card-tile" href="seances/seance-5.html">
-<span class="tag">Session 5</span>
-<h3>Visualising with ggplot2 (and maps)</h3>
-<p>Grammar of graphics, scatter plots, time series, world maps.</p>
-</a>
-<a class="card-tile" href="seances/seance-6.html">
-<span class="tag">Session 6</span>
-<h3>Advanced visualisation and Quarto reports</h3>
-<p>Interactive charts, the final figure and a reproducible Quarto report.</p>
-</a>
-<a class="card-tile" href="slides/atelier-dataviz.html">
-<span class="tag">Workshop</span>
-<h3>Dataviz workshop (FR)</h3>
-<p>Slides, in French: building a good chart, from question to message.</p>
-</a>
-<a class="card-tile" href="resources.html">
-<span class="tag">Resources</span>
-<h3>Going further</h3>
-<p>Books, documentation, chart galleries and data sources.</p>
-</a>
-</div>
 ```
 
 ## Before the first session

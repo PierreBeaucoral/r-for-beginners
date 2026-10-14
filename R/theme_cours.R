@@ -7,7 +7,7 @@ suppressPackageStartupMessages(library(ggplot2))
 #' Course palette: named colours (consistent with the site).
 #' - principal: site blue; accent: red to highlight one element;
 #' - gris: context / non-highlighted observations.
-pal_cours <- c(principal = "#1f4e79", accent = "#c0392b", gris = "grey65")
+pal_cours <- c(principal = "#1e539e", accent = "#c0392b", gris = "grey65")
 
 #' Categorical palette (Okabe-Ito, colour-blind safe) for the
 #' World Bank regions. Names are the English labels of the
@@ -40,9 +40,39 @@ theme_cours <- function(base_size = 14) {
       panel.grid.major = element_line(colour = "grey88"),
       legend.position  = "bottom",
       legend.title     = element_text(face = "bold"),
-      plot.margin      = margin(8, 12, 8, 8)
+      plot.margin      = margin(8, 12, 8, 8),
+      plot.background  = element_rect(fill = "#fcfaf6", colour = NA)   # same paper as the site
     )
 }
 
 # Applied by default to every plot in the session
 theme_set(theme_cours())
+
+# ------------------------------------------------------------------
+# Numbers written in the text of the course pages (inline `r ...`).
+# The French site is rendered with the Quarto profile "fr" (babelquarto),
+# so the same code prints 0.86 / $26,480 / 31% in English and
+# 0,86 / 26 480 $ / 31 % in French. Students do not need these helpers.
+# ------------------------------------------------------------------
+
+#' Language of the page being rendered: "fr" or "en" (default, e.g. in RStudio).
+course_lang <- function() {
+  if ("fr" %in% strsplit(Sys.getenv("QUARTO_PROFILE"), ",")[[1]]) "fr" else "en"
+}
+
+#' Number for prose: nb(0.8567, 2) gives "0.86" (EN) or "0,86" (FR).
+nb <- function(x, digits = 1) {
+  fr <- course_lang() == "fr"
+  formatC(x, format = "f", digits = digits,
+          big.mark = if (fr) " " else ",", decimal.mark = if (fr) "," else ".")
+}
+
+#' Dollar amount for prose: "$26,480" (EN) or "26 480 $" (FR).
+nb_dollar <- function(x, digits = 0) {
+  if (course_lang() == "fr") paste0(nb(x, digits), " $") else paste0("$", nb(x, digits))
+}
+
+#' Percentage for prose (x already in percent): "31%" (EN) or "31 %" (FR).
+nb_pct <- function(x, digits = 0) {
+  if (course_lang() == "fr") paste0(nb(x, digits), " %") else paste0(nb(x, digits), "%")
+}

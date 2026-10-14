@@ -1,0 +1,758 @@
+---
+title: "Séance 1 : Premiers pas avec R et RStudio"
+subtitle: "Interface, projets, objets, fonctions, packages, vecteurs et data frames"
+---
+
+::: {.objectifs}
+Objectifs de la séance
+
+- Installer R et RStudio et vous repérer dans les quatre panneaux.
+- Travailler dans un projet RStudio et construire des chemins de fichiers avec `here::here()`.
+- Créer des objets, appeler des fonctions et lire une page d'aide.
+- Distinguer l'installation d'un package de son chargement, et lire les trois messages d'erreur les plus courants.
+- Manipuler des vecteurs (y compris les valeurs manquantes) et des data frames avec R de base.
+- Calculer le PIB par habitant de trois pays : la première étape de notre fil rouge.
+:::
+
+::: {.prepare}
+Préparer votre session R
+
+Avez-vous suivi les étapes « Avant la première séance » de la [page d'accueil](../index.qmd) ? Sinon, faites-les d'abord : le bloc ci-dessous a besoin des packages et du fichier `R/theme_cours.R` qu'elles installent.
+
+```{r}
+#| label: setup
+library(tidyverse)
+library(here)
+library(scales)
+source(here("R", "theme_cours.R"))
+Sys.setenv(LANGUAGE = "en")  # messages d'erreur en anglais
+```
+
+**Script de la séance :** [télécharger seance-1.R](../scripts/seance-1.R){download="seance-1.R"}, tout le code de cette page dans un seul fichier.
+:::
+
+## Que sont R et RStudio ? {#sec-what}
+
+::: {.section-goal}
+[≈ 15 min]{.duration} À la fin de cette section, vous saurez dire ce que sont R et RStudio, et pourquoi nous les utilisons.
+:::
+
+**R** est un langage de programmation pour les statistiques et l'analyse de données. **RStudio** (désormais édité par Posit) est l'éditeur que nous utilisons pour écrire et exécuter du code R. R est le moteur, RStudio est le tableau de bord.
+
+::: {.callout-note}
+## En clair
+R est le moteur d'une voiture, RStudio est le tableau de bord et le volant. On peut conduire sans tableau de bord, mais on n'en a pas envie.
+:::
+
+Pourquoi R pour un économiste ?
+
+- **Gratuit et open source** : votre code tourne de la même façon sur n'importe quelle machine, aujourd'hui et dans cinq ans.
+- **Packages** : des milliers d'extensions sur le CRAN (l'archive officielle) pour la manipulation de données, l'économétrie, les cartes, l'analyse de texte.
+- **Reproductible** : le code, les résultats et le texte vivent dans un seul document (Quarto, séance 6).
+- **Très utilisé** dans le monde académique, les banques centrales et les organisations internationales, avec une large communauté.
+
+### Installation
+
+Installez dans cet ordre : d'abord R depuis le [CRAN](https://cran.r-project.org/), puis RStudio Desktop depuis [Posit](https://posit.co/download/rstudio-desktop/). Le chapitre [Starting with R and RStudio](https://rstudio-education.github.io/hopr/starting.html) (en anglais) de *Hands-On Programming with R* détaille les deux installations avec des captures d'écran.
+
+### Les quatre panneaux
+
+![Les quatre panneaux de RStudio. Source : [documentation de Posit, panneaux de RStudio](https://docs.posit.co/ide/user/ide/guide/ui/ui-panes.html) (en anglais).](../assets/rstudio-panes-labeled.jpeg){fig-alt="Capture d'écran de RStudio avec ses quatre panneaux annotés : éditeur de script en haut à gauche, console en bas à gauche, environnement et historique en haut à droite, fichiers, graphiques et aide en bas à droite."}
+
+| Panneau | À quoi il sert |
+|---|---|
+| **Source** (en haut à gauche) | Vos scripts (fichiers `.R`). C'est là que vous écrivez le code que vous voulez conserver. |
+| **Console** (en bas à gauche) | L'endroit où R exécute le code et affiche les résultats. Pratique pour les tests rapides. |
+| **Environment** (en haut à droite) | Les objets actuellement en mémoire. |
+| **Files / Plots / Packages / Help** (en bas à droite) | Explorateur de fichiers, graphiques, packages installés, pages d'aide. |
+
+## Projets RStudio et chemins de fichiers {#sec-projects}
+
+::: {.section-goal}
+[≈ 15 min]{.duration} Après cette section, vous saurez mettre en place un dossier de projet dans lequel chaque chemin fonctionne sur n'importe quel ordinateur.
+:::
+
+Faites-le dès le premier jour, cela vous fera gagner des heures plus tard.
+
+Un **projet RStudio** est un dossier contenant un fichier `.Rproj`. Quand vous l'ouvrez, RStudio fixe le répertoire de travail sur ce dossier, de sorte que tout chemin peut s'écrire *relativement au projet*.
+
+1. `File > New Project > New Directory > New Project`. Nommez-le `r-course` et choisissez son emplacement.
+2. Décompressez `data.zip` (page d'accueil) dans le dossier du projet. Cela crée `data/` (tous les fichiers de données y vont), `data/raw/` et `R/theme_cours.R`.
+3. Créez un script : `File > New File > R Script`, enregistrez-le sous `session1.R` dans le dossier du projet.
+
+Votre dossier de projet ressemble maintenant à ceci :
+
+```
+r-course/
+├── r-course.Rproj
+├── session1.R
+├── data/          # les données du cours (de data.zip)
+│   └── raw/       # fichiers originaux, en lecture seule
+├── R/
+│   └── theme_cours.R   # thème graphique commun (de data.zip)
+└── output/        # everything you produce (created in session 2)
+```
+
+### Pourquoi `here::here()` et jamais `setwd()`
+
+Beaucoup de tutoriels commencent leurs scripts par `setwd("/Users/john/Desktop/course")`. **Ne le faites jamais.** Ce chemin n'existe que sur votre propre ordinateur : le script plante sur toute autre machine (celle de votre collègue, de votre directeur de mémoire, la vôtre dans six mois). N'écrivez jamais `setwd()` avec un chemin de votre propre ordinateur dans un script que vous partagez.
+
+À la place, le package `here` construit les chemins à partir de la racine du projet, où que se trouve celui-ci :
+
+```{r}
+#| eval: false
+# Construit "<racine du projet>/data/wdi_panel.csv" sur n'importe quel ordinateur
+here::here("data", "wdi_panel.csv")
+
+# Utilisé dans une fonction de lecture (séance 2)
+wdi <- read_csv(here::here("data", "wdi_panel.csv"))
+```
+
+::: {.callout-important}
+## Idée clé
+**Un projet par cours ou par article, les données dans `data/`, les chemins construits avec `here::here()`.** Votre code tourne alors sur n'importe quel ordinateur sans modifier un seul chemin.
+:::
+
+::: {.callout-warning}
+## Erreur fréquente
+Ouvrir un fichier `.R` en double-cliquant dessus, en dehors du projet. Le répertoire de travail est alors faux et `here()` ne trouve pas `data/`. Ouvrez toujours d'abord le fichier `.Rproj` (le nom du projet s'affiche en haut à droite de RStudio).
+:::
+
+## Scripts, console et commentaires {#sec-scripts}
+
+::: {.section-goal}
+[≈ 10 min]{.duration} Après cette section, vous saurez écrire, exécuter et commenter du code dans un script.
+:::
+
+Vous pouvez taper dans la console, mais ce que vous y tapez est perdu. Le code que vous voulez garder va dans un **script**.
+
+```{mermaid}
+%%| echo: false
+flowchart LR
+    A["Script : écrire et enregistrer le code"] -->|"Cmd/Ctrl + Enter"| B["Console : R l'exécute"]
+    B --> C["Environment : objets en mémoire"]
+    B --> D["Plots / Files : sorties"]
+```
+
+- Écrivez le code dans le script, puis exécutez la ligne courante (ou les lignes sélectionnées) avec `Ctrl + Enter` (Windows/Linux) ou `Cmd + Enter` (Mac). R l'envoie à la console.
+- Exécutez tout le script avec `Ctrl/Cmd + Shift + Enter`.
+- Tout ce qui suit `#` sur une ligne est un **commentaire** : R l'ignore. Commentez le *pourquoi*, pas l'évident.
+
+```{r}
+# Un commentaire : R ignore cette ligne
+2 + 2   # un commentaire peut aussi suivre du code
+```
+
+::: {.callout-important}
+## Idée clé
+**Le script est votre production ; la console est un brouillon.** Si ce n'est pas dans le script, cela n'existe plus demain.
+:::
+
+Une bonne habitude : un script doit pouvoir s'exécuter de haut en bas dans une session R neuve et donner les mêmes résultats. Si ce n'est pas le cas, quelque chose est caché dans votre environnement.
+
+## Objets, types et opérateurs {#sec-objects}
+
+::: {.section-goal}
+[≈ 25 min]{.duration} Après cette section, vous saurez créer des objets, distinguer leurs types et utiliser les opérateurs.
+:::
+
+Un **objet** est un nom attaché à une valeur. On le crée avec la flèche d'assignation `<-` (raccourci `Alt + -` sous Windows, `Option + -` sous Mac).
+
+```{r}
+gdp_usa <- 20.9          # numeric (nombre)
+country <- "United States"  # character (texte, toujours entre guillemets)
+is_rich <- TRUE          # logical (TRUE ou FALSE, sans guillemets)
+
+gdp_usa
+country
+is_rich
+```
+
+Trois types de base : **numeric** (nombres), **character** (texte), **logical** (`TRUE`/`FALSE`). `class()` vous dit lequel vous avez :
+
+```{r}
+class(gdp_usa)
+class(country)
+class(is_rich)
+```
+
+Règles de nommage : lettres, chiffres, `_` et `.`, pas d'espaces, ne pas commencer par un chiffre. R est sensible à la casse (`gdp` et `GDP` sont deux objets différents). Ne réutilisez pas les noms de fonctions existantes (`sum`, `mean`, `summary`, `data`) : cela fonctionne jusqu'au jour où cela provoque un bug déroutant. Utilisez des noms descriptifs comme `total_gdp`.
+
+### Opérateurs arithmétiques et logiques
+
+```{r}
+3 + 5      # addition
+10 - 4     # soustraction
+6 * 7      # multiplication
+20 / 4     # division
+2^3        # puissance
+17 %/% 5   # division entière
+17 %% 5    # reste
+```
+
+Les comparaisons renvoient une valeur logique :
+
+```{r}
+3 == 3     # égal (deux signes égal !)
+5 != 4     # différent
+7 > 5
+2 < 6
+4 >= 4
+```
+
+Combinez les conditions avec `&` (et), `|` (ou) et `!` (non) :
+
+```{r}
+TRUE & FALSE
+TRUE | FALSE
+!TRUE
+```
+
+::: {.callout-warning}
+## Erreur fréquente
+Écrire `x = 3` quand on veut dire `x == 3`. Le premier **assigne** (et n'affiche rien), le second **compare** et renvoie `TRUE` ou `FALSE`. Utilisez `<-` pour assigner et gardez `=` pour les arguments de fonctions.
+:::
+
+### Fonctions et arguments
+
+::: {.definition}
+**Fonction** : une recette nommée. Elle prend des entrées (les **arguments**) entre parenthèses et renvoie un résultat.
+:::
+
+Une fonction prend des entrées (arguments) entre parenthèses et renvoie un résultat. Les arguments peuvent être donnés par position ou par nom.
+
+```{r}
+sqrt(16)
+round(3.14159, digits = 2)
+round(3.14159, 2)      # idem, par position
+mean(c(4, 8, 15, 16, 23, 42))
+```
+
+Vous pouvez stocker un résultat dans un nouvel objet et le réutiliser :
+
+```{r}
+total_gdp <- sum(20.9, 14.7, 2.7)
+total_gdp
+```
+
+## Obtenir de l'aide {#sec-help}
+
+::: {.section-goal}
+[≈ 10 min]{.duration} Après cette section, vous saurez trouver et lire la page d'aide de n'importe quelle fonction.
+:::
+
+Personne ne retient toutes les fonctions. Savoir trouver de l'aide est la vraie compétence.
+
+- `?mean` ou `help("mean")` ouvre la page d'aide d'une fonction (dans le panneau Help).
+- `??regression` cherche un mot dans toutes les pages d'aide installées.
+- Les vignettes et les sites web des packages (p. ex. [tidyverse.org](https://www.tidyverse.org/), en anglais) donnent des exemples travaillés.
+- Cherchez le message d'erreur exact en ligne : quelqu'un l'a déjà rencontré.
+
+```{r}
+#| eval: false
+?mean
+help("round")
+```
+
+Comment lire une page d'aide, dans cet ordre :
+
+1. **Description** : ce que fait la fonction, en une ligne.
+2. **Usage** : les arguments et leurs valeurs par défaut. `mean(x, trim = 0, na.rm = FALSE, ...)` vous indique que `na.rm` vaut `FALSE` sauf si vous le changez.
+3. **Arguments** : ce que signifie chacun d'eux.
+4. **Value** : ce que vous récupérez.
+5. **Examples** en bas de page : copiez-les dans votre console et exécutez-les. C'est souvent le moyen le plus rapide de comprendre.
+
+::: {.callout-note}
+## Utiliser les assistants d'IA
+
+ChatGPT, Claude, Copilot et les outils similaires sont utiles pour **expliquer un message d'erreur** ou vous rappeler la syntaxe d'une fonction. Trois règles :
+
+- Exécutez toujours le code et vérifiez qu'il fait ce que vous avez demandé ; le code produit par une IA peut être faux ou utiliser des fonctions obsolètes.
+- Si vous ne savez pas expliquer une ligne, ne la gardez pas. Vous êtes responsable de chaque résultat que vous rendez.
+- Ne collez jamais de données confidentielles ou personnelles dans un outil public.
+
+Apprenez d'abord les bases : on ne peut pas vérifier une réponse qu'on ne comprend pas.
+:::
+
+## Packages : installer une fois, charger à chaque fois {#sec-packages}
+
+::: {.section-goal}
+[≈ 10 min]{.duration} Après cette section, vous saurez distinguer l'installation d'un package de son chargement.
+:::
+
+R de base est petit. L'essentiel de ce que nous utilisons vient de **packages**. Deux étapes distinctes :
+
+1. **Installer** (une fois par ordinateur) : télécharger le package depuis le CRAN. Tapez ceci **dans la console**, jamais dans un script que vous partagez.
+2. **Charger** (à chaque session) : `library()` rend ses fonctions disponibles. Placez les appels à `library()` **en haut de votre script**.
+
+```{r}
+#| eval: false
+# Étape 1, une seule fois, dans la console : tous les packages utilisés dans ce cours
+install.packages(c(
+  "tidyverse", "here", "janitor", "readxl", "writexl", "lubridate", "scales",
+  "WDI", "gt", "fixest", "modelsummary", "ggrepel", "sf", "rnaturalearth",
+  "rnaturalearthdata", "patchwork", "plotly", "crosstalk", "shiny"
+))
+
+# Étape 2, en haut de chaque script
+library(tidyverse)
+```
+
+::: {.callout-note}
+## En clair
+Installer un package, c'est **acheter un livre** pour votre étagère (une fois). Le charger avec `library()`, c'est **le prendre sur l'étagère** et l'ouvrir (à chaque fois que vous travaillez).
+:::
+
+::: {.callout-warning}
+## Erreur fréquente
+Mettre `install.packages()` en haut d'un script. Cela retélécharge le package à chaque exécution et plante sur la machine d'un collègue. Installez dans la console, chargez dans le script.
+:::
+
+Installez-les tous maintenant (quelques minutes). Chaque séance suivante commence par une ligne « Packages utilisés aujourd'hui » qui vous dit quoi installer s'il manque quelque chose.
+
+`tidyverse` est un ensemble de packages (`ggplot2`, `dplyr`, `tibble`, `readr`, …) que nous utilisons tout au long du cours. Pour les packages que nous n'utilisons qu'une fois, `package::function()` (comme dans `here::here()`) appelle une fonction sans charger tout le package.
+
+## Lire les messages d'erreur {#sec-errors}
+
+::: {.section-goal}
+[≈ 15 min]{.duration} Après cette section, vous saurez lire les trois messages d'erreur les plus courants et les corriger.
+:::
+
+Vous aurez des erreurs tous les jours, y compris dans dix ans. Une erreur n'est pas un échec : R vous dit ce qu'il n'a pas pu faire. Lisez le message, puis regardez la ligne qu'il désigne. Voici les trois que vous rencontrerez le plus.
+
+**1. `object 'xxx' not found`** (« objet introuvable ») : vous utilisez un nom qui n'existe pas. Faute de frappe, mauvaise casse, ou vous avez oublié d'exécuter la ligne qui le crée.
+
+```{r}
+#| error: true
+gdp_china <- 14.7
+gdp_chinaa + 1      # faute de frappe dans le nom
+```
+
+**2. `unexpected symbol` / `unexpected numeric constant` / `unexpected ','`** (« symbole inattendu ») : la syntaxe est incorrecte, souvent une virgule, un guillemet ou une parenthèse manquants. R vous dit quel élément il n'attendait pas (ici le `2`), donc l'erreur se trouve juste *avant* : la virgule manquante après le `1`. Dans la console, le message s'écrit `unexpected numeric constant in "c(1 2"` ; cette page le met en forme différemment.
+
+```{r}
+#| error: true
+c(1 2 3)            # virgules manquantes
+```
+
+**3. `could not find function "xxx"`** (« fonction introuvable ») : le nom de la fonction est mal orthographié, ou son package n'est pas chargé. Ici `feols()` vient de `fixest`, que nous n'avons pas chargé avec `library()`.
+
+```{r}
+#| error: true
+feols(gdp ~ year, data = tibble(gdp = 1:3, year = 1:3))
+```
+
+::: {.callout-important}
+## Idée clé
+**Un message d'erreur est une information, pas un verdict.** Il nomme l'objet, le symbole ou la fonction sur lequel R a buté ; commencez par là.
+:::
+
+Méthode : (1) lisez le message à voix haute, (2) trouvez la ligne, (3) vérifiez l'orthographe, les virgules, les guillemets et les parenthèses, (4) vérifiez que vous avez exécuté les lignes précédentes et chargé le package, (5) seulement ensuite, cherchez en ligne ou demandez à un assistant d'IA en collant le message exact.
+
+## Vecteurs {#sec-vectors}
+
+::: {.section-goal}
+[≈ 25 min]{.duration} Après cette section, vous saurez construire des vecteurs, les indexer et calculer avec eux, y compris avec des valeurs manquantes.
+:::
+
+::: {.definition}
+**Vecteur** : une liste ordonnée de valeurs du *même type*. C'est la brique de base de R : une colonne d'un jeu de données est un vecteur.
+:::
+
+```{r}
+population <- c(331, 1411, 1380)             # numeric (nombres)
+countries  <- c("USA", "China", "India")     # character (texte)
+high_income <- c(TRUE, FALSE, FALSE)         # logical (vrai/faux)
+```
+
+Séquences et répétitions :
+
+```{r}
+1:10                      # entiers de 1 à 10
+seq(1, 10, by = 2)        # pas de 2
+seq(0, 1, length.out = 5) # 5 valeurs régulièrement espacées
+rep(5, times = 3)
+rep(c("a", "b"), each = 2)
+```
+
+### Indexation
+
+Les crochets sélectionnent des éléments par **position** (en commençant à 1) ou par **condition** :
+
+```{r}
+population[2]                # deuxième élément
+population[c(1, 3)]          # premier et troisième
+population[-1]               # tous sauf le premier
+population[population > 1000]  # éléments qui satisfont une condition
+countries[population > 1000]   # un vecteur sert à filtrer un autre
+```
+
+### Opérations vectorisées
+
+Les opérations s'appliquent à tous les éléments d'un coup, sans boucle.
+
+```{r}
+population + 2
+population * 1000000         # des millions aux personnes
+population / sum(population) # part du total
+```
+
+```{r}
+#| label: fig-vectorised
+#| fig-alt: "Diagramme en barres horizontales de la part de chaque pays dans la population totale de trois pays, en pourcentage. La Chine et l'Inde ont les deux barres les plus longues, 89 % à elles deux ; le troisième pays a une barre courte."
+#| code-fold: true
+#| code-summary: "Afficher le code du graphique (vu en séance 5)"
+#| fig-width: 8
+#| fig-height: 5
+tibble(country = countries, population = population,
+       share = 100 * population / sum(population)) |>
+  mutate(country = fct_reorder(country, share)) |>
+  ggplot(aes(x = share, y = country)) +
+  geom_col(fill = pal_cours[["principal"]]) +
+  geom_text(aes(label = paste0(round(share), " %")), hjust = -0.2) +
+  scale_x_continuous(limits = c(0, 55)) +
+  labs(
+    title = "La Chine et l'Inde concentrent 89 % de la population des trois pays",
+    x = "Part de la population totale des trois pays (%)",
+    y = NULL,
+    caption = "Source : valeurs 2020 arrondies d'une version antérieure des WDI (Banque mondiale), à visée pédagogique."
+  )
+```
+
+::: {.callout-note}
+## En clair
+Une opération vectorisée, c'est une **photocopieuse avec un tampon** : une seule instruction (`/ sum(population)`) est appliquée à toutes les feuilles d'un coup.
+:::
+
+### Valeurs manquantes
+
+`NA` signifie « valeur non disponible ». Ce n'est pas zéro. Tout calcul impliquant `NA` renvoie `NA`, car R ne peut pas deviner la valeur manquante.
+
+```{r}
+gini <- c(41.5, 38.2, NA, 35.7)
+mean(gini)
+mean(gini, na.rm = TRUE)   # na.rm = TRUE : retirer les NA avant le calcul
+is.na(gini)
+sum(is.na(gini))           # nombre de valeurs manquantes
+```
+
+::: {.callout-warning}
+## Erreur fréquente
+Utiliser `na.rm = TRUE` par réflexe. **Demandez-vous pourquoi la valeur est manquante** et si l'écarter biaise le résultat. Dans les WDI, le Gini manque pour beaucoup de pays pauvres, comme le montre le graphique.
+:::
+
+```{r}
+#| label: fig-na-share
+#| fig-alt: "Diagramme en barres du pourcentage de pays dont le Gini est manquant en 2019, pour quatre groupes de revenu de la Banque mondiale, du plus faible au plus élevé. Le Gini manque pour la plupart des pays de chaque groupe."
+#| code-fold: true
+#| code-summary: "Afficher le code du graphique (vu en séance 5)"
+#| fig-width: 8
+#| fig-height: 5
+read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE) |>
+  filter(year == 2019, !is.na(income)) |>
+  summarise(share_na = 100 * mean(is.na(gini)), .by = income) |>
+  mutate(income = factor(income, levels = c("Low income", "Lower middle income",
+                                            "Upper middle income", "High income"))) |>
+  ggplot(aes(x = income, y = share_na)) +
+  geom_col(fill = pal_cours[["accent"]]) +
+  geom_text(aes(label = paste0(round(share_na), " %")), vjust = -0.4) +
+  scale_y_continuous(limits = c(0, 100)) +
+  labs(
+    title = "Le Gini manque pour la plupart des pays une année donnée",
+    x = "Groupe de revenu de la Banque mondiale (classification actuelle)",
+    y = "Pays dont le Gini est manquant, 2019 (%)",
+    caption = "Source : Banque mondiale, World Development Indicators (WDI), 2019."
+  )
+```
+
+::: {.callout-important}
+## Pourquoi c'est important en économie du développement
+Les données d'inégalités sont les plus rares là où elles comptent le plus. Faire la moyenne des seuls pays qui déclarent un Gini décrit les pays qui mesurent l'inégalité, pas le monde.
+:::
+
+## Data frames et tibbles {#sec-dataframes}
+
+::: {.section-goal}
+[≈ 25 min]{.duration} Après cette section, vous saurez construire un petit tableau, l'explorer et calculer une nouvelle colonne.
+:::
+
+::: {.definition}
+**Data frame** (tableau de données) : un tableau dont chaque colonne est un vecteur, tous de même longueur.
+:::
+
+Un **tibble** est la version tidyverse d'un data frame, avec un affichage plus lisible. Nous utiliserons des tibbles tout au long du cours.
+
+Notre fil rouge commence ici : trois pays, avec des **valeurs 2020 arrondies** (PIB en milliards de dollars US courants, population en millions ; chiffres approximatifs à visée pédagogique, issus d'une version antérieure des WDI de la Banque mondiale). La version actuelle, utilisée à partir de la séance 2, donne des chiffres légèrement différents : la Banque mondiale révise ses séries.
+
+```{r}
+countries3 <- tibble(
+  country    = c("United States", "China", "India"),
+  gdp_bn     = c(20894, 14688, 2671),   # PIB, milliards de US$ courants, arrondi 2020
+  pop_mn     = c(331, 1411, 1380),      # population, millions, arrondi 2020
+  high_income = c(TRUE, FALSE, FALSE)
+)
+countries3
+```
+
+### Explorer un data frame
+
+```{r}
+nrow(countries3)     # nombre de lignes
+ncol(countries3)     # nombre de colonnes
+names(countries3)    # noms des colonnes
+str(countries3)      # structure : type de chaque colonne
+summary(countries3)  # statistiques rapides par colonne
+head(countries3, 2)  # 2 premières lignes
+```
+
+### Sélectionner des colonnes et des lignes
+
+```{r}
+countries3$gdp_bn          # une colonne (un vecteur) avec $
+countries3[1, ]            # première ligne, toutes les colonnes
+countries3[ , "country"]   # toutes les lignes, une colonne
+countries3[2, "pop_mn"]    # une cellule
+countries3[countries3$pop_mn > 1380, ]  # lignes satisfaisant une condition
+```
+
+Le schéma est `data[lignes, colonnes]`. Laisser un côté vide signifie « tout ».
+
+::: {.callout-note}
+## En clair
+Pensez à un tableur : `data[2, 3]` signifie « ligne 2, colonne 3 ». La virgule sépare les lignes (avant) des colonnes (après).
+:::
+
+### Ajouter une colonne
+
+```{r}
+countries3$gdp_pc <- countries3$gdp_bn * 1000 / countries3$pop_mn
+countries3
+```
+
+Unités : un PIB en milliards divisé par une population en millions donne des milliers de dollars par personne ; on multiplie donc par 1 000 pour obtenir des US$ par personne.
+
+### Trier et filtrer (R de base)
+
+```{r}
+# Trier par PIB par habitant, du plus élevé au plus faible
+countries3[order(countries3$gdp_pc, decreasing = TRUE), ]
+
+# Garder uniquement les pays de plus de 1 000 millions d'habitants
+countries3[countries3$pop_mn > 1000, ]
+```
+
+Cela fonctionne mais c'est lourd à écrire. En séance 3, `dplyr` rendra cela lisible (`arrange()`, `filter()`, `mutate()`).
+
+### Fil rouge : le PIB par habitant de trois pays
+
+```{r}
+countries3[order(countries3$gdp_pc, decreasing = TRUE), c("country", "gdp_pc")]
+```
+
+Les États-Unis produisent environ six fois plus par habitant que la Chine et environ trente-trois fois plus que l'Inde (valeurs 2020 arrondies, US$ courants, donc non corrigées des différences de prix entre pays). À partir de la séance 2, nous utilisons le jeu de données complet de la Banque mondiale avec tous les pays.
+
+```{r}
+#| label: fig-gdp-pc
+#| fig-alt: "Diagramme en barres horizontales du PIB par habitant en dollars courants, 2020, pour trois pays. La barre des États-Unis est bien plus longue que celle de la Chine, environ six fois, et celle de l'Inde est la plus courte."
+#| code-fold: true
+#| code-summary: "Afficher le code du graphique (vu en séance 5)"
+#| fig-width: 8
+#| fig-height: 5
+countries3 |>
+  mutate(country = fct_reorder(country, gdp_pc)) |>
+  ggplot(aes(x = gdp_pc, y = country)) +
+  geom_col(fill = pal_cours[["principal"]]) +
+  geom_text(aes(label = label_dollar()(round(gdp_pc))), hjust = -0.1) +
+  scale_x_continuous(limits = c(0, 80000), labels = label_dollar()) +
+  labs(
+    title = "Les États-Unis produisent six fois plus par habitant que la Chine",
+    x = "PIB par habitant ($ courants, 2020)",
+    y = NULL,
+    caption = "Source : valeurs 2020 arrondies d'une version antérieure des WDI (Banque mondiale), à visée pédagogique."
+  )
+```
+
+::: {.callout-important}
+## Idée clé
+**PIB par habitant = PIB / population.** Le total vous dit la taille d'une économie ; le ratio vous dit combien elle produit par personne. À populations proches, le PIB total de la Chine (5,5 fois celui de l'Inde) se traduit par un écart par habitant de même ampleur.
+:::
+
+## Le pipe `|>` {#sec-pipe}
+
+::: {.section-goal}
+[≈ 5 min]{.duration} Après cette section, vous saurez lire et écrire une chaîne d'étapes avec le pipe.
+:::
+
+Le **pipe** `|>` passe le résultat situé à sa gauche comme premier argument de la fonction située à sa droite. Le code se lit de gauche à droite, comme une recette :
+
+```{mermaid}
+%%| echo: false
+flowchart LR
+    A["c(1, 4, 9)"] -->|"puis somme"| B["14"] -->|"puis racine carrée"| C["3.74"]
+```
+
+```{r}
+sqrt(sum(c(1, 4, 9)))          # imbriqué : à lire de l'intérieur vers l'extérieur
+
+c(1, 4, 9) |> sum() |> sqrt()  # avec pipe : « prendre c(1, 4, 9), puis la somme, puis la racine carrée »
+```
+
+::: {.callout-note}
+## En clair
+Lisez `|>` comme **« et ensuite »** : prenez le vecteur, *et ensuite* faites-en la somme, *et ensuite* prenez la racine carrée.
+:::
+
+Même résultat. À partir de la séance 2, la plupart de notre code utilise le pipe (raccourci `Ctrl/Cmd + Shift + M`).
+
+## Exercices {#sec-exercises}
+
+::: {.section-goal}
+[≈ 25 min]{.duration} Après ces exercices, vous saurez appliquer seul chaque outil de la séance.
+:::
+
+Faites les exercices 1.1 à 1.5 en classe ; 1.6 et 1.7 sont à faire à la maison ou si vous terminez en avance.
+
+::: {.callout-tip}
+## Exercice 1.1
+Créez un objet `my_age` avec votre âge, un objet `my_name` avec votre nom, et un objet `is_student` avec une valeur logique. Affichez les trois, puis vérifiez la classe de chacun.
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+my_age <- 25
+my_name <- "Pierre"
+is_student <- TRUE
+
+my_age
+my_name
+is_student
+
+class(my_age)
+class(my_name)
+class(is_student)
+```
+:::
+
+::: {.callout-tip}
+## Exercice 1.2
+Créez `x <- 12` et `y <- 5`. Calculez leur somme, leur différence, leur produit et leur quotient. Vérifiez ensuite si `x` est supérieur à `y` et si `x` est divisible par `y` (indice : le reste `%%`).
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+x <- 12
+y <- 5
+
+x + y
+x - y
+x * y
+x / y
+
+x > y
+x %% y == 0   # FALSE : le reste est 2
+```
+:::
+
+::: {.callout-tip}
+## Exercice 1.3
+Ouvrez la page d'aide de `round()`. Que fait l'argument `digits`, et quelle est sa valeur par défaut ? Arrondissez ensuite `pi` à 3 décimales.
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+#| eval: false
+?round
+```
+
+`digits` est le nombre de décimales ; la valeur par défaut est `0`.
+
+```{r}
+round(pi, digits = 3)
+```
+:::
+
+::: {.callout-tip}
+## Exercice 1.4
+Créez un vecteur numérique `gdp_growth` avec les valeurs `2.3, 5.1, NA, 3.8, -0.4` (taux de croissance annuels en %). Calculez sa moyenne avec et sans la valeur manquante, puis sélectionnez les années où la croissance dépasse 2.
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+gdp_growth <- c(2.3, 5.1, NA, 3.8, -0.4)
+
+mean(gdp_growth)                 # NA
+mean(gdp_growth, na.rm = TRUE)   # 2,7
+
+# Attention : comparer NA à 2 donne NA, donc on retire d'abord les NA
+gdp_growth[!is.na(gdp_growth) & gdp_growth > 2]
+```
+:::
+
+::: {.callout-tip}
+## Exercice 1.5
+Créez le vecteur `1:10` puis, avec une seule opération chacun, (a) le vecteur de ses carrés, (b) uniquement les nombres pairs (indice : `%% 2 == 0`), (c) les nombres impairs de 1 à 9 avec `seq()`.
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+v <- 1:10
+
+v^2
+v[v %% 2 == 0]
+seq(1, 9, by = 2)
+```
+:::
+
+::: {.callout-tip}
+## Exercice 1.6
+Créez un data frame `students` avec trois colonnes `name`, `age`, `is_student` et quatre lignes (inventez-les). Puis : (a) affichez la colonne `age`, (b) affichez la première ligne, (c) gardez les lignes dont `age` est strictement supérieur à 20, **quel que soit leur statut d'étudiant**, (d) triez par âge.
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+students <- tibble(
+  name       = c("Alice", "Bob", "Charlie", "Dalia"),
+  age        = c(19, 24, 31, 22),
+  is_student = c(TRUE, TRUE, FALSE, TRUE)
+)
+
+students$age                       # (a)
+students[1, ]                      # (b)
+students[students$age > 20, ]      # (c) condition sur l'âge uniquement
+students[order(students$age), ]    # (d)
+```
+:::
+
+::: {.callout-tip}
+## Exercice 1.7
+À partir de `countries3`, ajoutez une colonne `gdp_share` égale à la part du PIB de chaque pays dans le PIB total des trois pays, en %. Affichez ensuite les pays triés par `gdp_share`, du plus élevé au plus faible.
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+countries3$gdp_share <- 100 * countries3$gdp_bn / sum(countries3$gdp_bn)
+
+countries3[order(countries3$gdp_share, decreasing = TRUE),
+           c("country", "gdp_share")]
+```
+:::
+
+## À retenir {#sec-takeaways}
+
+- Travaillez dans un **projet RStudio**, gardez les données dans `data/` et construisez les chemins avec `here::here()`. N'utilisez jamais `setwd()` avec un chemin de votre propre ordinateur.
+- Écrivez le code dans un **script**, exécutez-le avec `Ctrl/Cmd + Enter` et commentez le *pourquoi*.
+- Créez des objets avec `<-` ; les trois types de base sont numeric, character et logical. Ne donnez pas à vos objets des noms de fonctions (`sum`, `mean`, `summary`).
+- **Installez** un package une fois (`install.packages()`, dans la console), **chargez**-le dans chaque script (`library()`, en haut).
+- Lisez les erreurs calmement : *object not found* (faute de frappe), *unexpected symbol* (syntaxe), *could not find function* (faute de frappe ou package non chargé). `?function` ouvre la page d'aide.
+- Les opérations sur les vecteurs sont vectorisées ; `NA` est contagieux, utilisez donc `na.rm = TRUE` en connaissance de cause.
+- Un data frame est un ensemble de vecteurs de même longueur : `data$col`, `data[rows, cols]`. PIB par habitant = PIB / population.
+- Le pipe `|>` transmet le résultat d'une étape à la suivante : `x |> f() |> g()`.
+
+Suite : [Séance 2 : Importer et exporter des données](seance-2.qmd).

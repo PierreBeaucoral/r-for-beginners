@@ -1,0 +1,39 @@
+# Profil chargé par babelquarto pour la version française (fichiers *.fr.qmd).
+# Seuls les libellés changent ; le reste vient de _quarto.yml.
+lang: fr
+
+website:
+  title: "R pour l'analyse de données : niveau débutant"
+  navbar:
+    title: "R pour débutants"
+    left:
+      - text: "Accueil"
+        href: index.qmd
+      - text: "Séances"
+        menu:
+          - text: "1 : Premiers pas avec R et RStudio"
+            href: seances/seance-1.qmd
+          - text: "2 : Importer et exporter des données"
+            href: seances/seance-2.qmd
+          - text: "3 : Manipuler les données (dplyr, tidyr, jointures)"
+            href: seances/seance-3.qmd
+          - text: "4 : Statistiques descriptives et régression"
+            href: seances/seance-4.qmd
+          - text: "5 : Visualiser avec ggplot2 (et cartes)"
+            href: seances/seance-5.qmd
+          - text: "6 : Visualisation avancée et rapports Quarto"
+            href: seances/seance-6.qmd
+      # L'atelier n'existe qu'en une version (française), à la racine du site
+      - text: "Atelier dataviz"
+        href: https://pierrebeaucoral.github.io/r-for-beginners/slides/atelier-dataviz.html
+      - text: "Ressources"
+        href: resources.qmd
+      - text: "Essayer R en ligne"
+        href: playground.qmd
+  page-footer:
+    left: "R pour débutants · Master GPE (CERDI / IHEDD) · Pierre Beaucoral"
+    right: "Réalisé avec [Quarto](https://quarto.org)."
+
+format:
+  html:
+    toc-title: "Sur cette page"

@@ -1,6 +1,7 @@
 format:
   revealjs:
     theme: [default, slides.scss]
+    css: fonts.css
     width: 1280
     height: 720
     slide-number: true

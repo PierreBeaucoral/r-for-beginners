@@ -28,4 +28,7 @@ Imports:
     shiny,
     WDI,
     zip,
-    lubridate
+    lubridate,
+    babelquarto
+Remotes:
+    ropensci/babelquarto

@@ -1,59 +1,342 @@
+/* Hallmark · genre: editorial · macrostructure: Long Document · theme: custom "textbook"
+ * vibe: "printed course notes, cobalt ink on cream" · tone: academic, reading-first
+ * paper oklch(98.6% 0.006 85) · accent oklch(45% 0.135 258) cobalt ink
+ * display: Newsreader (600) · body: IBM Plex Sans (400) · code: JetBrains Mono
+ * nav: N9 edge-aligned (Quarto navbar, light) · footer: Ft2 inline · enrichment: none
+ * axes: light / roman-serif / cool · taste dials: variance 4 · motion 2 · density 4
+ * less-polished pass: highlighter on defined terms only, red-pencil mistakes, paper grain
+ *   under the text, open callouts (left rule = callouts only), printer's section mark above h2
+ * revised after design review 2026-10-14 (quality_reports/referee_reports/2026-10-14_design_review.md)
+ * Pre-emit critique: P4 H4 E4 S4 R5 V3
+ */
+
 /*-- scss:defaults --*/
-// Palette — sobre, académique (bleu ardoise + accents)
-$primary:      #1f4e79;   // bleu profond (navbar, titres)
-$secondary:    #6c757d;
-$body-color:   #1a1a1a;
-$link-color:   #1f4e79;
-$font-family-sans-serif: "Source Sans Pro", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-$font-size-root: 17px;
-$toc-color: $primary;
+// Bootstrap needs plain colour values to compute tints and shades, so the
+// tokens are defined once here (hex = the OKLCH value noted beside it) and
+// re-exported as CSS custom properties in the rules section.
+$c-paper:         #fcfaf6;  // oklch(98.6% 0.006 85)
+$c-paper-2:       #f5f2ec;  // oklch(96.2% 0.009 85)   code, objectives
+$c-paper-3:       #ede9e1;  // oklch(93.5% 0.011 85)   table head, hover
+$c-rule:          #d9d5cf;  // oklch(87.5% 0.010 85)   hairlines
+$c-muted:         #615d56;  // oklch(48%   0.012 85)   secondary text, 6.3:1
+$c-ink:           #161d2a;  // oklch(23%   0.028 262)  body text, 16:1
+$c-ink-2:         #373d49;  // oklch(36%   0.022 262)
+$c-accent:        #1e539e;  // oklch(45%   0.135 258)  cobalt ink, 7.3:1
+$c-accent-tint:   #e4eefc;  // oklch(94.5% 0.022 258)
+$c-exercise:      #2e6941;  // oklch(47%   0.09 152)
+$c-exercise-tint: #e7f4ea;  // oklch(95.5% 0.02 152)
+$c-warning:       #a33e25;  // oklch(50%   0.14 35)   red pencil, 6.2:1
+$c-warning-tint:  #fdece7;  // oklch(95.5% 0.02 35)
+$c-marker:        #f7e8af;  // oklch(93%   0.075 95)  highlighter; ink on it 13.8:1
+$c-explain:       #546673;  // oklch(50%   0.03 240)
+
+$font-display: "Newsreader", "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+$font-body:    "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+$font-code:    "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+// Bootstrap / Quarto variables
+$primary:        $c-accent;
+$secondary:      $c-muted;
+$body-bg:        $c-paper;
+$body-color:     $c-ink;
+$link-color:     $c-accent;
+$border-color:   $c-rule;
+$web-font-path: false;   // stop cosmo's @import of Google Fonts: all fonts are self-hosted
+$font-family-sans-serif: $font-body;
+$font-family-monospace:  $font-code;
+$headings-font-family:   $font-display;
+$headings-font-weight:   600;
+$headings-color:         $c-ink;
+$font-size-root:   19px;
+$line-height-base: 1.65;
+$border-radius:    4px;
+$border-radius-lg: 4px;
+$border-radius-sm: 3px;
+$btn-border-radius:    4px;
+$btn-border-radius-lg: 4px;
+
+$navbar-bg: $c-paper;
+$navbar-fg: $c-ink-2;
+$navbar-hl: $c-accent;
+$footer-bg: $c-paper;
+
+$code-color:       $c-ink;
+$code-bg:          $c-paper-2;
+$code-block-bg:    $c-paper-2;
+$toc-color:        $c-accent;
+
+// Callout roles: explanation (note) · key idea (important) · exercise (tip) · mistake (warning)
+$callout-color-note:      $c-explain;
+$callout-color-important: $c-accent;
+$callout-color-tip:       $c-exercise;
+$callout-color-warning:   $c-warning;
 
 /*-- scss:rules --*/
-// Titres
-h1, h2, h3 { color: $primary; font-weight: 600; letter-spacing: -0.01em; }
-h2 { border-bottom: 2px solid rgba(31,78,121,.15); padding-bottom: .3rem; margin-top: 2rem; }
+// ---- Self-hosted fonts (latin subset; no request to Google from students' browsers)
+@font-face { font-family: "Newsreader"; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url("assets/fonts/Newsreader-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url("assets/fonts/IBMPlexSans-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: italic; font-weight: 400; font-display: swap;
+  src: url("assets/fonts/IBMPlexSans-italic.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url("assets/fonts/JetBrainsMono-normal.woff2") format("woff2"); }
 
-// Boîtes pédagogiques via callouts par défaut de Quarto (note/tip/warning/important)
-.callout { border-radius: 6px; }
+:root {
+  --color-paper: #{$c-paper};   --color-paper-2: #{$c-paper-2}; --color-paper-3: #{$c-paper-3};
+  --color-rule: #{$c-rule};     --color-muted: #{$c-muted};
+  --color-ink: #{$c-ink};       --color-ink-2: #{$c-ink-2};
+  --color-accent: #{$c-accent}; --color-accent-tint: #{$c-accent-tint};
+  --color-marker: #{$c-marker}; --color-focus: #{$c-accent};
+  --font-display: #{$font-display};
+  --space-2xs: .5rem; --space-xs: .75rem; --space-sm: 1rem; --space-md: 1.5rem; --space-lg: 2rem; --space-xl: 3rem;
+  --radius: 4px;
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --dur-short: 160ms;
+}
+// Last guard only: wide elements below get their own scroll or wrap (never silently cut)
+html, body { overflow-x: clip; }
 
-// "Objectifs de la séance" — encart en tête de page
+// ---- Type: major-third steps on a 19px root
+h1, h2, h3, h4, .title { font-family: var(--font-display); color: var(--color-ink); font-style: normal;
+  font-optical-sizing: auto; letter-spacing: -0.012em; overflow-wrap: anywhere; min-width: 0; }
+h1.title { font-size: clamp(2.05rem, 1.6rem + 2vw, 2.6rem); line-height: 1.08; font-weight: 600; }
+.subtitle.lead { font-family: var(--font-body); color: var(--color-muted); font-size: 1.1rem; font-weight: 400; }
+h2 { font-size: 1.6rem; line-height: 1.2; margin-top: var(--space-xl); border-bottom: 0; padding-bottom: 0; }
+// Printer's section mark: a short ink bar above each h2 instead of a full-width rule
+main.content h2::before { content: ""; display: block; width: 2.2rem; height: 3px; background: var(--color-accent);
+  margin-bottom: .55rem; border-radius: 1px; }
+h3 { font-size: 1.25rem; line-height: 1.3; margin-top: var(--space-lg); }
+h2.anchored, h3.anchored { scroll-margin-top: 5rem; }
+strong { font-weight: 600; color: var(--color-ink); }
+a { text-underline-offset: .18em; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+main.content a { overflow-wrap: anywhere; }   // long URLs wrap on phones
+
+// Highlighter: only for defined terms (first bold term of a .definition) and explicit [x]{.mark}
+mark, .mark, main.content .definition > p:first-child > strong:first-child {
+  background: linear-gradient(176deg, transparent 50%, var(--color-marker) 50%, var(--color-marker) 90%, transparent 90%);
+  color: inherit; padding: 0 .12em; margin: 0 -.06em; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+
+// Reading measure: prose at ~68ch; code, figures and tables keep the full column
+main.content :is(p, li, dd, blockquote, figcaption) { max-width: 68ch; }
+main.content :is(.grid-cards, .cell-output-display, figure, table) :is(p, li) { max-width: none; }
+main.content p:has(> img) { max-width: none; }
+#title-block-header .description { display: none; }   // kept for search engines, repeats the intro
+
+blockquote { border-left: 2px solid var(--color-accent); color: var(--color-ink-2);
+  padding: .1rem 0 .1rem var(--space-sm); margin: var(--space-md) 0; font-size: 1rem; }
+
+// Keyboard focus: instant, 3px, offset, accent (7.3:1 on paper)
+:focus-visible { outline: 3px solid var(--color-focus) !important; outline-offset: 2px; border-radius: var(--radius); }
+.navbar-toggler:focus:not(:focus-visible) { box-shadow: none; }
+.skip-link { position: absolute; left: -999px; top: .5rem; z-index: 3000; background: var(--color-paper);
+  color: var(--color-accent); padding: .4rem .8rem; border: 2px solid var(--color-accent); }
+.skip-link:focus { left: .5rem; }
+
+// ---- Navbar: paper bar, hairline below, serif wordmark
+.navbar { border-bottom: 1px solid var(--color-rule); box-shadow: none; }
+.navbar-brand .navbar-title { font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; color: var(--color-ink); letter-spacing: -0.01em; }
+.navbar .nav-link { font-size: .95rem; }
+.navbar .nav-link.active, .navbar .nav-link:hover,
+.navbar .dropdown:has(.dropdown-item.active) > .nav-link {
+  text-decoration: underline; text-underline-offset: .4em; text-decoration-thickness: 2px; color: var(--color-ink); }
+// Language switch: a plain link to the other language (course-ui.html), boxed and aligned with the links
+#languages-links-parent { display: flex; align-items: center; height: 100%; }
+#languages-button, a.lang-switch { background: transparent; border: 1px solid var(--color-rule); color: var(--color-ink-2);
+  font-size: .85rem; font-weight: 600; padding: .15rem .55rem; border-radius: var(--radius); text-decoration: none; }
+#languages-button:hover, a.lang-switch:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.nav-footer { border-top: 1px solid var(--color-rule); color: var(--color-muted); font-size: .85rem; }
+
+// ---- Contents: quiet, current section marked by a 2px accent rule
+#TOC, #quarto-margin-sidebar { font-size: .85rem; }
+.sidebar nav[role="doc-toc"] ul > li > a { color: var(--color-muted); }
+.sidebar nav[role="doc-toc"] ul > li > a.active { color: var(--color-accent); border-left-color: var(--color-accent); }
+// Phones get the same list as a collapsible block under the title (built in course-ui.html)
+details.toc-mobile { margin: 0 0 var(--space-md); border-top: 1px solid var(--color-rule); border-bottom: 1px solid var(--color-rule);
+  padding: .4rem 0; font-size: .95rem; }
+details.toc-mobile summary { cursor: pointer; font-weight: 600; color: var(--color-ink-2); }
+details.toc-mobile ul { margin: .4rem 0 0; padding-left: 1.1rem; }
+details.toc-mobile ul ul { display: none; }
+@media (min-width: 768px) { details.toc-mobile { display: none; } }
+
+// ---- Code: the code is the content, so it is not smaller than it needs to be
+div.sourceCode, pre.sourceCode { background: var(--color-paper-2) !important; border: 1px solid var(--color-rule);
+  border-radius: var(--radius); }
+pre, .callout pre { font-size: .84rem; }          // ≈16px everywhere, solutions included
+pre code { font-size: inherit; }                  // no compounding with Bootstrap/callout sizes
+// No ligatures: beginners must see the exact characters they type (<-, |>, ==), not arrows
+code, pre, kbd, samp, .sourceCode, .cm-editor { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+p code:not(.sourceCode), li code:not(.sourceCode), td code:not(.sourceCode) {
+  font-size: .88em; background: var(--color-paper-2); color: var(--color-ink); padding: .06em .22em; border-radius: 3px;
+  white-space: normal; overflow-wrap: anywhere; }
+.cell-output pre { padding-left: var(--space-sm); color: var(--color-ink-2); }
+
+// ---- Tables: hairlines only; wide ones scroll inside their own box on phones
+table { font-size: .92em; }
+thead th { background: var(--color-paper-3); border-bottom: 1px solid var(--color-ink-2) !important; }
+main.content table:not(.gt_table) { display: block; max-width: 100%; overflow-x: auto; }
+main.content :is(div, td):has(> .gt_table), main.content .cell-output-display:has(table) { overflow-x: auto; max-width: 100%; }
+// gt tables join the page: same ink, type and paper
+.gt_table { font-family: inherit !important; color: inherit !important; background: transparent !important; }
+.gt_table :is(.gt_row, .gt_col_heading, .gt_heading, .gt_title, .gt_subtitle, .gt_sourcenote, .gt_footnote,
+  .gt_column_spanner_outer, .gt_stub, .gt_group_heading) { background: transparent !important; color: inherit !important; }
+.gt_table .gt_title { font-family: var(--font-display) !important; font-weight: 600 !important; }
+
+// ---- Teaching blocks (one device each: box, frame, plain line, rule)
 .objectifs {
-  background: #f0f5fa;
-  border-left: 4px solid $primary;
-  padding: .9rem 1.2rem;
-  border-radius: 4px;
-  margin: 1rem 0 1.5rem 0;
+  background: var(--color-paper-2); border-left: 2px solid var(--color-accent);
+  padding: var(--space-sm) var(--space-md); margin: var(--space-sm) 0 var(--space-md);
 }
-.objectifs > p:first-child { font-weight: 700; color: $primary; margin-bottom: .4rem; }
-
-// Définitions clés
+.objectifs code { background: var(--color-paper-3) !important; }
+.prepare {
+  border: 1px solid var(--color-rule); border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md); margin: 0 0 var(--space-xl);
+}
+.objectifs > :last-child, .prepare > :last-child { margin-bottom: 0; }
+.objectifs > p:first-child, .prepare > p:first-child {
+  font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; color: var(--color-ink); margin-bottom: .35rem;
+}
+@media (max-width: 575.98px) {
+  .objectifs, .prepare { padding: var(--space-xs) var(--space-sm); }
+  .objectifs ul { padding-left: 1.1rem; }
+}
 .definition {
-  background: #fbf7ef;
-  border: 1px solid #e6d9bd;
-  border-left: 4px solid #b8860b;
-  padding: .7rem 1rem;
-  border-radius: 4px;
-  margin: 1rem 0;
+  border-top: 1px solid var(--color-rule); border-bottom: 1px solid var(--color-rule);
+  padding: var(--space-xs) 0; margin: var(--space-md) 0;
+}
+.definition > p:first-child strong:first-child { font-family: var(--font-display); font-size: 1.05rem; }
+
+// Section opener: a plain line, set apart by colour and space, no rule
+.section-goal { margin: var(--space-2xs) 0 var(--space-md); color: var(--color-muted); }
+.section-goal > p { margin: 0; }
+.duration { display: inline-block; margin-right: .6rem; color: var(--color-accent); font-weight: 600;
+  font-size: .9em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+// Callouts: open, a left rule in the role colour and a serif label; the rule belongs to callouts only
+.callout.callout-style-default:not(:has(> .callout-header[data-bs-toggle="collapse"])) {
+  border: 0 !important; border-left: 3px solid var(--callout-rule, var(--color-rule)) !important;
+  background: transparent !important; border-radius: 0; box-shadow: none; padding-left: .2rem; margin: var(--space-md) 0;
+  .callout-header { background: transparent !important; border: 0; padding-bottom: 0; }
+  .callout-title-container { font-family: var(--font-display); font-size: 1.08rem; font-weight: 600;
+    color: var(--callout-rule, var(--color-ink)); }
+  .callout-icon-container { display: none; }
+  .callout-body-container { padding-top: .1rem; }
+}
+.callout-note      { --callout-rule: #{$c-explain}; }
+.callout-important { --callout-rule: #{$c-accent}; }
+.callout-tip       { --callout-rule: #{$c-exercise}; }
+.callout-warning   { --callout-rule: #{$c-warning}; }
+
+// Solutions: the collapsed callout is a clear button; the answer opens below it, unframed
+.callout:has(> .callout-header[data-bs-toggle="collapse"]) {
+  border: 0 !important; background: none !important; box-shadow: none; margin: .6rem 0 1.4rem;
+  overflow: visible !important; padding: 3px 0 0 3px;   // room for the focus ring
+}
+.callout-header[data-bs-toggle="collapse"] {
+  display: inline-flex !important; align-items: center; gap: .5rem; cursor: pointer; opacity: 1 !important;
+  border: 1px solid var(--color-accent); border-radius: var(--radius); background: var(--color-paper) !important;
+  padding: .3rem .8rem !important;
+  transition: background-color var(--dur-short) var(--ease-out);
+  .callout-icon-container { display: none; }
+  .callout-title-container { color: var(--color-accent); font-weight: 600; padding: 0 !important; }
+  .callout-btn-toggle { padding: 0 !important; }
+  &:hover { background: var(--color-accent-tint) !important; }
+  &:active { transform: translateY(1px); }
+  &:not(.collapsed) { background: var(--color-accent) !important;
+    .callout-title-container { color: var(--color-paper); }
+    .callout-toggle { filter: invert(1); }
+  }
+}
+.callout:has(> .callout-header[data-bs-toggle="collapse"]) .callout-body-container {
+  padding: .2rem 0 .2rem 0 !important; margin-top: .6rem;
 }
 
-// Tableaux
-table { font-size: .95em; }
-thead th { background: #f0f5fa; }
+// ---- Homepage
+.hero-actions > p { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin: var(--space-md) 0 var(--space-xl); max-width: none; }
+.hero-actions .btn { font-weight: 600; padding: .55rem 1.1rem; white-space: nowrap; }
+.btn:active { transform: translateY(1px); }
+.btn { transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out); }
 
-// Cartes de navigation (accueil)
-.grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 1rem; margin: 1.5rem 0; }
-.grid-cards a.card-tile {
-  display: block; padding: 1.1rem 1.2rem; border: 1px solid #e2e2e2; border-radius: 8px;
-  text-decoration: none; color: $body-color; background: #fff; transition: .15s;
+// Session list: a numbered contents page, not a card wall
+.grid-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--space-xl);
+  margin: var(--space-sm) 0 var(--space-md); }
+.grid-cards a.card-tile { display: grid; grid-template-columns: 2.4rem minmax(0, 1fr); column-gap: var(--space-xs);
+  padding: var(--space-sm) 0; border-top: 1px solid var(--color-rule); text-decoration: none; color: var(--color-ink); }
+.grid-cards .card-tile .num { grid-row: 1 / span 2; font-family: var(--font-display); font-size: 2.3rem; font-weight: 400;
+  color: var(--color-accent); line-height: 1; font-variant-numeric: oldstyle-nums; }
+.grid-cards .card-tile h3 { grid-column: 2; margin: 0 0 .25rem; font-size: 1.15rem; line-height: 1.25; }
+.grid-cards .card-tile p { grid-column: 2; font-size: .9rem; color: var(--color-muted); margin: 0; }
+.grid-cards a.card-tile:hover h3 { color: var(--color-accent); text-decoration: underline; text-underline-offset: .2em; }
+@media (max-width: 767.98px) { .grid-cards { grid-template-columns: minmax(0, 1fr); } }
+
+// The course as a chain of six steps (replaces a 2.7 MB Mermaid diagram)
+ol.chain { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .2rem;
+  padding: 0; margin: var(--space-sm) 0 var(--space-md); counter-reset: step; max-width: none !important; }
+ol.chain li { counter-increment: step; display: inline-flex; align-items: center; max-width: none !important; }
+ol.chain li > span { border: 1px solid var(--color-rule); border-radius: var(--radius); padding: .2rem .6rem;
+  font-size: .9rem; white-space: nowrap; }
+ol.chain li > span::before { content: "S" counter(step) " "; font-family: var(--font-display); color: var(--color-accent); font-weight: 600; }
+ol.chain li + li::before { content: "→"; color: var(--color-muted); margin-right: .2rem; }
+
+.secondary-links { font-size: .95rem; color: var(--color-muted); border-top: 1px solid var(--color-rule);
+  padding-top: var(--space-xs); margin: 0 0 var(--space-xl); }
+
+// ---- Compact session navigation (built by assets/course-ui.html)
+.session-nav { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin: .25rem 0 var(--space-sm); }
+.session-nav-label { color: var(--color-muted); font-size: .85rem; margin-right: .4rem; }
+.session-nav a {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; height: 2rem;
+  border: 1px solid var(--color-rule); border-radius: var(--radius); color: var(--color-ink-2);
+  font-weight: 600; font-size: .85rem; text-decoration: none; font-variant-numeric: tabular-nums;
+  transition: border-color var(--dur-short) var(--ease-out);
+  &:hover { border-color: var(--color-accent); color: var(--color-accent); }
+  &[aria-current="page"] { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-paper); }
 }
-.grid-cards a.card-tile:hover { border-color: $primary; box-shadow: 0 3px 12px rgba(31,78,121,.12); transform: translateY(-2px); }
-.grid-cards .card-tile .tag { font-size: .8em; color: $primary; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
-.grid-cards .card-tile h3 { margin: .3rem 0 .3rem; font-size: 1.05rem; }
-.grid-cards .card-tile p { font-size: .9em; color: #555; margin: 0; }
+@media (max-width: 420px) { .session-nav-label { display: none; } .session-nav a { min-width: 1.85rem; } }
 
-// Bold = key term: a touch of colour so it stands out when skimming
-strong { color: darken($primary, 8%); }
-
-// Mermaid diagrams: centred, not wider than the text column
+// Mermaid diagrams (session pages): centred, never wider than the column
 .cell-output-display svg, pre.mermaid + svg, .mermaid svg { max-width: 100%; }
 .quarto-figure-center .mermaid, div.mermaid { text-align: center; }
+
+// Live R page (webR): same paper, same code size
+.cm-editor { font-size: .84rem; }
+.exercise-editor-header, .card-header { background: var(--color-paper-2) !important; }
+.cm-gutters { background: var(--color-paper-2) !important; }
+
+// Paper grain: under the text (not over it), fixed, never repainted on scroll
+body { position: relative; z-index: 0; }
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url%28%23n%29'/%3E%3C/svg%3E");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  *, *::before, *::after { transition-duration: 0ms !important; }
+  .btn:active, .callout-header:active { transform: none; }
+}
+
+// ======================================================================
+// Print: notes students can print and annotate
+// ======================================================================
+@media print {
+  body::before, #quarto-header, .session-nav, #quarto-margin-sidebar, .nav-footer, .quarto-secondary-nav,
+  .hero-actions, .code-copy-button, #quarto-back-to-top, .page-navigation, .toc-mobile, .skip-link { display: none !important; }
+  body { background: #fff; font-size: 11pt; }
+  #quarto-content, .page-columns { display: block !important; }
+  main.content { max-width: none !important; width: 100% !important; }
+  main.content :is(p, li) { max-width: none; }
+  .callout-collapse.collapse { display: block !important; height: auto !important; }   // print every solution
+  .callout-header[data-bs-toggle="collapse"] { border: 0 !important; background: none !important; padding-left: 0 !important;
+    .callout-title-container { color: var(--color-ink) !important; } }
+  .callout-toggle { display: none; }
+  details > :not(summary) { display: block !important; }
+  details::details-content { content-visibility: visible; display: block; }
+  div.sourceCode, pre, figure, .callout, table { break-inside: avoid; }
+  h2, h3 { break-after: avoid; }
+  // URLs only for prose links (Quarto puts http anchors on every code line)
+  a[href^="http"]::after { content: none; }
+  main.content :is(p, li) > a[href^="http"]:not(.uri)::after { content: " (" attr(href) ")"; font-size: .8em; color: #555; word-break: break-all; }
+}

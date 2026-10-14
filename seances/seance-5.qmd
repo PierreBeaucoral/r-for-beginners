@@ -14,6 +14,9 @@ Session objectives
 - Save a figure with explicit size and resolution.
 :::
 
+::: {.prepare}
+Prepare your R session
+
 **Packages used today:** `tidyverse`, `scales`, `ggrepel`, `sf`, `rnaturalearth`, `rnaturalearthdata`, `here`. Install any that are missing with `install.packages()`.
 
 ```{r}
@@ -36,11 +39,16 @@ wdi_2022 <- wdi |>
   filter(year == 2022)
 ```
 
+**Script of this session:** [download seance-5.R](../scripts/seance-5.R){download="seance-5.R"}, all the code of this page in one file.
+:::
+
 Everything in this session uses the full panel (`wdi`, about 217 countries, 2000-2023). When a chart needs **one point per country**, we take one year, 2022 (`wdi_2022`). This matters: a common mistake is to draw a histogram on pooled years (for instance 63 values from three countries). A chart is only as good as the question its data answer.
 
 Why 2022? It is the latest year with good coverage for the variables we use (2023 has many more missing values). Session 4 used 2019, the last pre-COVID year, because it studied a relationship, not the present.
 
-## Check extremes before plotting ≈ 5 min
+**Pacing.** The core path takes about 180 minutes, exercises included. Parts marked **Optional: going further** (the annotation part of Exercise 5.5, and Exercise 5.6) add about 20 minutes: do them if time allows, or at home.
+
+## Check extremes before plotting (≈ 5 min)
 
 Before drawing anything, look at the extremes: one absurd value stretches an axis and hides everything else.
 
@@ -52,20 +60,23 @@ wdi_2022 |>
   select(country, iso3c, life_exp)
 ```
 
-The Central African Republic shows a life expectancy of 18.8 years in 2022. The next lowest country is at about 54. This value is implausible (no country has such a life expectancy in 2022): it is a data artefact, not a finding. We never edit the raw file; we **exclude the value explicitly and say so**. Setting only `life_exp` to `NA` keeps the country's other variables (for example electricity access, used in the map below).
+The Central African Republic shows a life expectancy of `r nb(min(wdi_2022$life_exp, na.rm = TRUE), 1)` years in 2022. The next lowest country is at about `r nb(sort(wdi_2022$life_exp)[2], 0)`. This value is implausible: it is a data artefact, not a finding. As Session 4 showed, it is not a one-year glitch: the whole CAF life-expectancy series is unreliable in this WDI release (it also reads 14.7 years in 2009). We never edit the raw file; we **exclude the series explicitly, for every year, and say so**, with the same line as in Session 4. Setting only `life_exp` to `NA` keeps the country's other variables (for example electricity access, used in the map below).
 
 ```{r}
 #| label: fix-caf
-# Implausible WDI value: CAF 2022 life expectancy = 18.8 (next lowest is about 54)
-wdi <- wdi |>
-  mutate(life_exp = if_else(iso3c == "CAF" & year == 2022, NA_real_, life_exp))
+# CAF life expectancy is unreliable in this WDI release (14.7 in 2009, 18.8 in 2022): exclude every year
+wdi <- wdi |> mutate(life_exp = if_else(iso3c == "CAF", NA_real_, life_exp))
 
 wdi_2022 <- filter(wdi, year == 2022)
 ```
 
-## The grammar of graphics ≈ 25 min
+## The grammar of graphics
 
-**After this section you can read any ggplot as a stack of layers and build one step by step.** A ggplot is not a "chart type". It is a **recipe** with independent ingredients, added with `+`:
+::: {.section-goal}
+[≈ 25 min]{.duration} After this section you can read any ggplot as a stack of layers and build one step by step.
+:::
+
+A ggplot is not a "chart type". It is a **recipe** with independent ingredients, added with `+`:
 
 | Ingredient | Question it answers | Typical code |
 |---|---|---|
@@ -81,6 +92,7 @@ wdi_2022 <- filter(wdi, year == 2022)
 :::
 
 ```{mermaid}
+%%| echo: false
 flowchart LR
   A[data] --> B[aes]
   B --> C[geom]
@@ -102,6 +114,7 @@ Let us build one plot, one ingredient at a time. Steps 1 to 4 are shown side by 
 :::: {layout-ncol=2}
 ```{r}
 #| label: layer-1
+#| fig-alt: "Empty chart canvas with a horizontal axis for GDP per capita and a vertical axis for life expectancy. No data are drawn yet."
 #| fig-width: 5
 #| fig-height: 3.6
 #| fig-cap: "Step 1. Data and aesthetics only: an empty canvas with axes."
@@ -113,6 +126,7 @@ ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp))
 
 ```{r}
 #| label: layer-2
+#| fig-alt: "Scatter plot of life expectancy against GDP per capita, one point per country. Life expectancy rises steeply at low incomes, then levels off."
 #| fig-width: 5
 #| fig-height: 3.6
 #| fig-cap: "Step 2. Add a geom: now the data are drawn."
@@ -122,6 +136,7 @@ ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp)) +
 
 ```{r}
 #| label: layer-3
+#| fig-alt: "Same scatter plot with a logarithmic x axis and dollar labels. The points now form a roughly straight upward band."
 #| fig-width: 5
 #| fig-height: 3.6
 #| fig-cap: "Step 3. Add a scale: logarithmic x axis with dollar labels."
@@ -132,6 +147,7 @@ ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp)) +
 
 ```{r}
 #| label: layer-4
+#| fig-alt: "Scatter plot of life expectancy against log GDP per capita, points coloured by region. Regions cluster: Sub-Saharan Africa at the lower left, Europe at the upper right."
 #| fig-width: 5
 #| fig-height: 3.6
 #| fig-cap: "Step 4. Map one more variable: colour by region (new aesthetic, new scale)."
@@ -148,6 +164,7 @@ In step 2 most countries are squeezed on the left: income is very skewed, so a l
 
 ```{r}
 #| label: layer-5
+#| fig-alt: "Final scatter plot of life expectancy against log GDP per capita, coloured by region, with title, axis labels, legend and source. Richer countries live longer, but gains flatten at the top."
 #| fig-width: 8
 #| fig-height: 6.5
 ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp, colour = region)) +
@@ -160,7 +177,7 @@ ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp, y = life_exp, colour = region)) +
     x = "GDP per capita, PPP (constant 2021 international $, log scale)",
     y = "Life expectancy at birth (years)",
     colour = "Region",
-    caption = src
+    caption = "Source: World Bank, World Development Indicators (WDI), 2022."
   ) +
   theme_cours(base_size = 11)
 ```
@@ -183,12 +200,17 @@ Writing `aes(colour = "red")` instead of `colour = "red"`. Inside `aes()`, `"red
 Think of a ggplot as a sandwich: the data is the bread, each `+` adds a filling. You can add or remove one filling without rebuilding the rest.
 :::
 
-## The Gapminder scatter ≈ 30 min
+## The Gapminder scatter
 
-**After this section you can combine four variables on one chart and label a few points without clutter.** This is the figure that made Hans Rosling famous: income, health, population and region on one plot. We add a fourth variable (population, as point **size**) and label a few countries with `ggrepel`, which moves labels so they do not overlap.
+::: {.section-goal}
+[≈ 25 min]{.duration} After this section you can combine four variables on one chart and label a few points without clutter.
+:::
+
+This is the figure that made Hans Rosling famous: income, health, population and region on one plot. We add a fourth variable (population, as point **size**) and label a few countries with `ggrepel`, which moves labels so they do not overlap.
 
 ```{r}
 #| label: gapminder
+#| fig-alt: "Bubble chart of life expectancy against log GDP per capita; bubble size is population, colour is region. China, India, Nigeria and the United States are labelled. Similar incomes can hide a 20-year gap."
 #| fig-width: 10
 #| fig-height: 8
 focus <- c("China", "India", "Nigeria", "United States")
@@ -248,9 +270,10 @@ Using `wdi_2022_ok`, draw a scatter of life expectancy (y) against **electricity
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 #| label: ex-5-1
+#| fig-alt: "Scatter plot of life expectancy against the share of the population with electricity access, coloured by income group. Countries without universal access have markedly lower life expectancy."
 #| fig-width: 8
 #| fig-height: 5
 wdi_2022 |>
@@ -265,15 +288,19 @@ wdi_2022 |>
     title = str_wrap("Countries without universal electricity have markedly lower life expectancy", 60),
     x = "Population with access to electricity (%)",
     y = "Life expectancy at birth (years)",
-    colour = "Income group",
+    colour = "Income group (current World Bank classification)",
     caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022.", 95)
   )
 ```
 :::
 
-## Lines: change over time ≈ 25 min
+## Lines: change over time
 
-**After this section you can draw a time series that highlights one country and labels lines directly.** Before choosing a geom, ask which question you are answering:
+::: {.section-goal}
+[≈ 25 min]{.duration} After this section you can draw a time series that highlights one country and labels lines directly.
+:::
+
+Before choosing a geom, ask which question you are answering:
 
 ::: {.callout-important}
 ## Key idea: which chart for which question?
@@ -293,6 +320,7 @@ The dataviz principle of the workshop: **signal versus context**. If everything 
 
 ```{r}
 #| label: lines
+#| fig-alt: "Line chart of life expectancy from 2000 to 2023 for eight countries. India is a thick red line, the seven others thin grey lines. India gained nine years; of the eight countries, only Bangladesh gained more (about 13 years)."
 #| fig-width: 9
 #| fig-height: 5.5
 compare <- c("India", "China", "Nigeria", "Brazil", "United States", "Germany", "Japan", "Bangladesh")
@@ -315,7 +343,7 @@ ggplot(life_lines, aes(x = year, y = life_exp, group = country)) +
   scale_x_continuous(breaks = seq(2000, 2020, 5), expand = expansion(mult = c(0.02, 0.02))) +
   coord_cartesian(xlim = c(2000, 2027), clip = "off") +
   labs(
-    title = str_wrap("India gained nine years of life expectancy since 2000, more than Brazil or China", 60),
+    title = str_wrap("India gained nine years of life expectancy since 2000; of these eight countries, only Bangladesh gained more", 60),
     x = "Year",
     y = "Life expectancy at birth (years)",
     caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2000-2023. India in red; seven comparison countries in grey.", 95)
@@ -345,9 +373,10 @@ For each region, compute the **median life expectancy** per year (use `wdi`). Dr
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 #| label: ex-5-2
+#| fig-alt: "Line chart of median life expectancy by region from 2000 to 2023, one coloured line per region, labelled at the right. Sub-Saharan Africa gained 12 years but still trails every other region."
 #| fig-width: 9
 #| fig-height: 7
 life_region <- wdi |>
@@ -374,9 +403,13 @@ ggplot(life_region, aes(x = year, y = life_med, colour = region)) +
 ```
 :::
 
-## Bars: comparing groups ≈ 25 min
+## Bars: comparing groups
 
-**After this section you can pick `geom_col()` or `geom_bar()` and produce honest, sorted bar charts.** Two different bar charts, two different geoms:
+::: {.section-goal}
+[≈ 25 min]{.duration} After this section you can pick `geom_col()` or `geom_bar()` and produce honest, sorted bar charts.
+:::
+
+Two different bar charts, two different geoms:
 
 | You have... | Use | What it does |
 |---|---|---|
@@ -391,6 +424,7 @@ Two rules for bar charts: start at **zero**, and **sort** the bars. For text cat
 
 ```{r}
 #| label: bars-col
+#| fig-alt: "Horizontal bar chart of median GDP per capita by region, bars sorted from lowest to highest with dollar values at the tips. North America is about seven times above South Asia."
 #| fig-width: 9
 #| fig-height: 4.5
 gdp_region <- wdi_2022_ok |>
@@ -419,10 +453,13 @@ gdp_region |>
 
 ### Counts: number of countries by income group
 
+The `income` column is the **income group (current World Bank classification)**: each country's group today, applied to every year (see Session 4). The World Bank sets these groups from gross national income per capita (Atlas method, current US$), not from the GDP per capita in PPP that we plot.
+
 Income groups have a natural order (low to high), so we turn the column into an **ordered factor** by hand. Alphabetical order would put "High income" first.
 
 ```{r}
 #| label: bars-count
+#| fig-alt: "Bar chart of the number of countries in each World Bank income group, with counts above the bars. High-income countries are the largest group, and 25 countries are low-income."
 #| fig-width: 8
 #| fig-height: 4.5
 niveaux <- c("Low income", "Lower middle income", "Upper middle income", "High income")
@@ -436,7 +473,7 @@ wdi_2022 |>
   scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
   labs(
     title = str_wrap("High-income countries are the largest group, but 25 countries are still low-income", 60),
-    x = "World Bank income group",
+    x = "Income group (current World Bank classification)",
     y = "Number of countries",
     caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022. All economies in the WDI panel.", 95)
   )
@@ -449,9 +486,10 @@ Show the **ten richest countries** in 2022 (GDP per capita, PPP) as sorted horiz
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 #| label: ex-5-3
+#| fig-alt: "Horizontal bar chart of GDP per capita for the ten richest countries, coloured by region and sorted by value. Nine are small economies or financial centres, such as Singapore, Luxembourg, Ireland, Qatar and Bermuda; the United States, tenth, is the only large economy."
 #| fig-width: 8
 #| fig-height: 6.5
 wdi_2022_ok |>
@@ -463,7 +501,7 @@ wdi_2022_ok |>
   scale_fill_manual(values = pal_regions) +
   guides(fill = guide_legend(nrow = 4)) +
   labs(
-    title = str_wrap("The richest countries are small economies, mostly in Europe and the Gulf", 60),
+    title = str_wrap("Nine of the ten richest countries are small economies or financial centres; the United States is the exception", 60),
     x = "GDP per capita, PPP (constant 2021 international $)",
     y = NULL, fill = "Region",
     caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022.", 95)
@@ -471,9 +509,13 @@ wdi_2022_ok |>
 ```
 :::
 
-## Distributions ≈ 25 min
+## Distributions
 
-**After this section you can show how a variable is spread across countries, overall and by group.** To see how a variable is spread **across countries**, use one observation per country: `wdi_2022_ok`. (Pooling all years would count each country 24 times, and the observations would not be independent.)
+::: {.section-goal}
+[≈ 25 min]{.duration} After this section you can show how a variable is spread across countries, overall and by group.
+:::
+
+To see how a variable is spread **across countries**, use one observation per country: `wdi_2022_ok`. (Pooling all years would count each country 24 times, and the observations would not be independent.)
 
 ### Histogram and density
 
@@ -481,6 +523,7 @@ GDP per capita is very right-skewed, so we work on a **log scale**. We pick the 
 
 ```{r}
 #| label: histogram
+#| fig-alt: "Histogram with a red density curve of GDP per capita across countries on a log x axis. Incomes span more than a 100-fold range, with no single typical country."
 #| fig-width: 8
 #| fig-height: 4.5
 ggplot(wdi_2022_ok, aes(x = gdp_pc_ppp)) +
@@ -516,6 +559,7 @@ A boxplot shows the median (line), the middle half of observations (box) and unu
 
 ```{r}
 #| label: boxplot
+#| fig-alt: "Boxplots of GDP per capita (log scale) for each income group (current World Bank classification), with individual countries as dots. The median rises from about $2,500 in the low-income group to about $49,000 in the high-income group, but neighbouring groups overlap and each spans a wide range of incomes."
 #| fig-width: 8
 #| fig-height: 5
 wdi_2022_ok |>
@@ -526,8 +570,8 @@ wdi_2022_ok |>
   scale_x_discrete(labels = label_wrap(14)) +
   scale_y_log10(labels = label_dollar(scale_cut = cut_short_scale())) +
   labs(
-    title = str_wrap("Income groups barely overlap, by construction, yet each hides a wide range of incomes", 60),
-    x = "World Bank income group",
+    title = str_wrap("Median income rises steeply from one income group to the next, but neighbouring groups overlap", 60),
+    x = "Income group (current World Bank classification)",
     y = str_wrap("GDP per capita, PPP (constant 2021 international $, log scale)", 40),
     caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022. Box = quartiles and median; dots = individual countries.", 95)
   )
@@ -541,6 +585,8 @@ wdi_2022_ok |>
 
 Why `outliers = FALSE`? Otherwise the boxplot draws the outliers *and* the jitter draws them again.
 
+The groups overlap because they are not defined on this axis: the World Bank classifies countries by gross national income per capita, not GDP per capita in PPP, and `income` holds today's group, not the 2022 one. The richest low-income country (`r nb_dollar(max(wdi_2022_ok$gdp_pc_ppp[wdi_2022_ok$income == "Low income"]))`) is richer than the poorest upper-middle-income one (`r nb_dollar(min(wdi_2022_ok$gdp_pc_ppp[wdi_2022_ok$income == "Upper middle income"]))`).
+
 ::: {.callout-tip}
 ## Exercise 5.4
 
@@ -548,9 +594,10 @@ Compare the distribution of life expectancy in **2000 and 2022**. Use `facet_wra
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 #| label: ex-5-4
+#| fig-alt: "Two side-by-side histograms of life expectancy across countries, for 2000 and 2022. The low-life-expectancy tail shrank between the two years."
 #| fig-width: 9
 #| fig-height: 4.5
 wdi |>
@@ -567,18 +614,21 @@ wdi |>
   )
 ```
 
-In 2000, 31 countries had a life expectancy below 55 years; in 2022 only 3 do (the Central African Republic value was excluded above). The whole distribution shifted to the right.
+In 2000, `r nb(sum(wdi$life_exp[wdi$year == 2000] < 55, na.rm = TRUE), 0)` countries had a life expectancy below 55 years; in 2022 only `r nb(sum(wdi$life_exp[wdi$year == 2022] < 55, na.rm = TRUE), 0)` do (the Central African Republic series is excluded, see the start of this page). The whole distribution shifted to the right.
 :::
 
-## Maps ≈ 45 min
+## Maps
 
-**After this section you can draw a choropleth of the world, join it safely to the WDI data and check what did not match.**
+::: {.section-goal}
+[≈ 40 min]{.duration} After this section you can draw a choropleth of the world, join it safely to the WDI data and check what did not match.
+:::
 
 ::: {.definition}
 **Choropleth**: a map where each area is coloured according to a value. **`sf` (simple features)**: the R format that stores shapes as a `geometry` column in a data frame.
 :::
 
 ```{mermaid}
+%%| echo: false
 flowchart LR
   A[Shapes: Natural Earth] --> C[left_join on iso code]
   B[Data: WDI 2022] --> C
@@ -616,11 +666,10 @@ unmatched <- function(code) {
     pull(country)
 }
 
-n_unmatched <- tibble(
-  code = c("iso_a3", "iso_a3_eh", "adm0_a3"),
-  n_wdi_unmatched = map_int(code, \(x) length(unmatched(x)))
-)
-n_unmatched
+# How many WDI economies stay unmatched with each code?
+length(unmatched("iso_a3"))
+length(unmatched("iso_a3_eh"))
+length(unmatched("adm0_a3"))
 
 unmatched("iso_a3_eh")
 ```
@@ -639,10 +688,10 @@ world |>
 ::: {.callout-note}
 ## Why it matters for development economics
 
-A map that silently drops countries drops the countries that often matter most: small, poor or fragile states (Kosovo, small island states) are exactly where name mismatches and missing data cluster. Checking the join is part of measuring development honestly.
+Here the losses are small: three small or disputed territories on the WDI side, and mostly tiny territories without WDI data on the map side. That is because we join on codes. A join on country names would leave about 50 WDI economies without a shape, among them the Democratic Republic of the Congo, Yemen and Côte d'Ivoire, and the map would show them as "no data" without any warning. Checking the join is part of measuring development honestly.
 :::
 
-Never join on country *names*: "Russian Federation" (WDI) is "Russia" (Natural Earth), "Egypt, Arab Rep." is "Egypt". Codes are stable.
+Never join on country *names*: "Russian Federation" (WDI) is "Russia" (Natural Earth), "Egypt, Arab Rep." is "Egypt". Codes are far more stable than names, though they do change (ROM became ROU, ZAR became COD): run `anti_join()` anyway.
 
 ### 2. Join and plot
 
@@ -662,6 +711,7 @@ GDP per capita is skewed, so a continuous colour scale would make almost everyth
 
 ```{r}
 #| label: map-gdp
+#| fig-alt: "World map in the Robinson projection, countries shaded in six classes of GDP per capita, light grey where there is no data. Income is highest in the North and lowest in Sub-Saharan Africa."
 #| fig-width: 10
 #| fig-height: 5.8
 cuts   <- c(0, 2500, 5000, 10000, 20000, 40000, Inf)
@@ -669,12 +719,12 @@ labs_g <- c("< $2,500", "$2,500-5,000", "$5,000-10,000", "$10,000-20,000",
             "$20,000-40,000", "> $40,000")
 
 world_gdp |>
-  mutate(gdp_class = cut(gdp_pc_ppp, breaks = cuts, labels = labs_g, right = FALSE),
-         gdp_class = fct_na_value_to_level(gdp_class, "No data")) |>
+  mutate(gdp_class = cut(gdp_pc_ppp, breaks = cuts, labels = labs_g, right = FALSE)) |>
   ggplot() +
-  geom_sf(aes(fill = gdp_class), colour = "white", linewidth = 0.1) +
-  scale_fill_manual(values = c(setNames(hcl.colors(6, "YlGnBu", rev = TRUE), labs_g),
-                               "No data" = "grey85")) +
+  geom_sf(aes(fill = fct_na_value_to_level(gdp_class, "No data")),   # NA becomes a level
+          colour = "white", linewidth = 0.1) +
+  scale_fill_manual(values = c(hcl.colors(6, "YlGnBu", rev = TRUE), "grey85"),  # one colour per level, in order
+                    drop = FALSE) +
   coord_sf(crs = "+proj=robin") +
   guides(fill = guide_legend(nrow = 2, title.position = "top")) +
   labs(
@@ -688,7 +738,7 @@ world_gdp |>
 
 What makes this map honest:
 
-- **All countries** are drawn. Missing data get their own level, "No data", in light grey (`fct_na_value_to_level()` turns `NA` into a real factor level so that it appears in the legend).
+- **All countries** are drawn. Missing data get their own level, "No data", in light grey: `fct_na_value_to_level()` turns `NA` into a real factor level, the last one, so that it appears in the legend. `scale_fill_manual()` then gives one colour per level, in the order of the levels (`drop = FALSE` keeps every level, even an empty one, so colours cannot shift).
 - **Binned scale** with round breaks and labels written in dollars, not `1e+04`.
 - **`coord_sf(crs = "+proj=robin")`**: Robinson projection, a compromise that distorts areas less than the default longitude/latitude rectangle. A string like `"+proj=robin"` is a PROJ definition; `"EPSG:4326"` would give plain lat/long.
 - Area is not population: Russia and Canada look large, India small. A choropleth of an *intensive* variable (per capita) is fair; one of *totals* would mislead.
@@ -696,13 +746,16 @@ What makes this map honest:
 ::: {.callout-tip}
 ## Exercise 5.5
 
-Map **access to electricity** (% of population) in 2022 for all countries, in bins (for example below 50%, 50-80%, 80-99%, 99-100%). Then **annotate the three countries with the lowest access**, with their names and values. Hint: use `slice_min()` to find them and `st_point_on_surface()` for a label position inside each country. (We use the lowest, not the highest: more than 100 countries are at 100%, so "top 3" would be an arbitrary tie.)
+Map **access to electricity** (% of population) in 2022 for all countries, in bins (for example below 50%, 50-80%, 80-99%, 99-100%).
+
+**Optional: going further.** Then **annotate the three countries with the lowest access**, with their names and values. Hint: use `slice_min()` to find them and `st_point_on_surface()` for a label position inside each country. (We use the lowest, not the highest: more than 100 countries are at 100%, so "top 3" would be an arbitrary tie.)
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 #| label: ex-5-5
+#| fig-alt: "World map shaded by four classes of electricity access, with the three lowest-access countries (South Sudan, Burundi, Chad) labelled by name and value. Twenty of the 22 countries where less than half the population has electricity are in Sub-Saharan Africa."
 #| fig-width: 10
 #| fig-height: 5.8
 bottom3 <- world_gdp |>
@@ -716,20 +769,20 @@ bottom3$label                                  # check which countries are annot
 world_gdp |>
   mutate(elec_class = cut(elec_access, breaks = c(0, 50, 80, 99, 100.01),
                           labels = c("< 50%", "50-80%", "80-99%", "99-100%"),
-                          right = FALSE),
-         elec_class = fct_na_value_to_level(elec_class, "No data")) |>
+                          right = FALSE)) |>
   ggplot() +
-  geom_sf(aes(fill = elec_class), colour = "white", linewidth = 0.1) +
+  geom_sf(aes(fill = fct_na_value_to_level(elec_class, "No data")),
+          colour = "white", linewidth = 0.1) +
   geom_label_repel(data = bottom3, aes(label = label, geometry = geometry),
                    stat = "sf_coordinates", size = 3.4, fill = alpha("white", 0.85),
                    min.segment.length = Inf, box.padding = 0.2, seed = 1) +  # no leader lines
-  scale_fill_manual(values = c("< 50%" = "#08306b", "50-80%" = "#2171b5", "80-99%" = "#9ecae1",
-                               "99-100%" = "#eff3ff", "No data" = "grey85")) +
+  scale_fill_manual(values = c("#08306b", "#2171b5", "#9ecae1", "#eff3ff", "grey85"),  # in level order
+                    drop = FALSE) +
   coord_sf(crs = "+proj=robin") +
   guides(fill = guide_legend(nrow = 2, title.position = "top")) +
   labs(
     x = NULL, y = NULL,
-    title = str_wrap("Seven of the eight countries with under 20% electricity access are in Sub-Saharan Africa", 60),
+    title = str_wrap("20 of the 22 countries where less than half the population has electricity are in Sub-Saharan Africa", 60),
     fill = "Population with access to electricity",
     caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022. Labels (placed near the countries): the three with the lowest access. Light grey: no data.", 95)
   ) +
@@ -737,9 +790,13 @@ world_gdp |>
 ```
 :::
 
-## Saving figures ≈ 10 min
+## Saving figures
 
-**After this section you can export a figure with a fixed size and resolution.** In a report, the figure on screen is not the figure in the file. Save with **explicit size and resolution** so the output is identical on every computer. Store the plot in an object, then call `ggsave()`.
+::: {.section-goal}
+[≈ 10 min]{.duration} After this section you can export a figure with a fixed size and resolution.
+:::
+
+In a report, the figure on screen is not the figure in the file. Save with **explicit size and resolution** so the output is identical on every computer. Store the plot in an object, then call `ggsave()`.
 
 ```{r}
 #| label: save
@@ -768,15 +825,16 @@ A figure is a **deliverable**: message in the title, units on the axes, source i
 :::
 
 ::: {.callout-tip}
-## Exercise 5.6
+## Exercise 5.6 (Optional: going further)
 
 Make a boxplot of **life expectancy by region** (2022, one point per country), regions sorted by median, horizontal, and save it as a 300 dpi PNG in `output/`. The save chunk must not be evaluated when the page is rendered.
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 #| label: ex-5-6
+#| fig-alt: "Horizontal boxplots of life expectancy by region, sorted by median. Sub-Saharan Africa has the lowest median, about 9 years below the next region."
 #| fig-width: 8
 #| fig-height: 5
 p_life_region <- wdi_2022 |>

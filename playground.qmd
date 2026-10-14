@@ -1,0 +1,97 @@
+---
+title: "Try R in your browser"
+subtitle: "Run R without installing anything: edit the code, press Run, see the result"
+description: "A live R console in the browser (webR) to try the basics of Session 1 before installing R."
+format:
+  live-html:
+    theme: [cosmo, theme.scss]
+    toc: false
+    grid:
+      body-width: 880px
+    include-after-body: assets/course-ui.html
+engine: knitr
+---
+
+{{< include assets/webr-knitr.md >}}
+
+This page runs R **inside your browser** (with [webR](https://docs.r-wasm.org/webr/latest/)). Nothing to install, nothing saved: reload the page and everything starts again. The first visit downloads about 10 MB (R itself) and takes a few seconds; prefer Wi-Fi.
+
+Use it to try the basics before Session 1, or if R is not installed yet on your computer. For the course itself, work in RStudio: that is where your project, data and scripts live.
+
+## 1. R as a calculator
+
+Edit the numbers, then press **Run Code**.
+
+```{webr}
+2 + 2
+(1 + 0.03)^10      # 3% growth for 10 years
+sqrt(16)
+```
+
+## 2. Objects
+
+`<-` stores a value under a name. Type the name to see the value.
+
+```{webr}
+gdp_pc <- 72829    # United States, 2022, GDP per capita (PPP $)
+pop    <- 334      # millions
+gdp_pc * pop / 1e6 # total GDP, in billions of PPP $
+```
+
+## 3. Vectors and missing values
+
+A vector holds several values of the same type. `NA` marks a missing value.
+
+```{webr}
+countries <- c("United States", "China", "India")
+life_exp  <- c(77.4, 78.2, 71.7)   # 2022, years
+mean(life_exp)
+
+gini <- c(41.8, NA, 23.0)   # US and India 2023; China blanked for the example
+mean(gini)                  # NA: one value is missing
+mean(gini, na.rm = TRUE)    # ignore the missing value, and say so
+```
+
+## 4. A small data frame
+
+A data frame is a table: one row per country, one column per variable.
+
+```{webr}
+df <- data.frame(
+  country    = c("United States", "China", "India"),
+  gdp_pc_ppp = c(72829, 21499, 8347),
+  life_exp   = c(77.4, 78.2, 71.7)
+)
+df
+df[df$life_exp > 75, ]
+df$gdp_pc_ppp / df$gdp_pc_ppp[3]   # how many times India's level
+```
+
+## 5. Your turn
+
+Add a column `richer_than_china` that is `TRUE` when GDP per capita is above China's, then print `df`.
+
+```{webr}
+#| exercise: ex_1
+df <- data.frame(
+  country    = c("United States", "China", "India"),
+  gdp_pc_ppp = c(72829, 21499, 8347)
+)
+df$richer_than_china <- ______
+df
+```
+
+::: { .hint exercise="ex_1"}
+Compare the column with China's value, the second element: `df$gdp_pc_ppp > df$gdp_pc_ppp[2]`.
+:::
+
+::: { .solution exercise="ex_1"}
+```{webr}
+#| exercise: ex_1
+#| solution: true
+df$richer_than_china <- df$gdp_pc_ppp > df$gdp_pc_ppp[2]
+df
+```
+:::
+
+<small>Source of the values: World Bank, World Development Indicators (WDI), 2022, as in the course data. Gini: latest year available (2023); the China value (36.0 in 2022) is left out on purpose to show `NA`.</small>

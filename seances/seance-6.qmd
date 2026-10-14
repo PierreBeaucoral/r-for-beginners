@@ -15,13 +15,10 @@ Session objectives
 - Produce the figure for the "note au ministre" (capstone).
 :::
 
-We keep the running question of the course: **growth, health and inequality, what do the data say about developing countries?** All charts use the World Bank panel `data/wdi_panel.csv` (country × year, 2000–2023).
+::: {.prepare}
+Prepare your R session
 
 **Packages used today:** tidyverse, here, scales, patchwork, plotly, crosstalk (and shiny, optional). If one is missing, run `install.packages("name")` once in the Console.
-
-**Pacing.** The core path takes about 180 minutes, exercises included. Parts marked **Optional — going further** (custom theme and Exercise 6.2, crosstalk, Shiny) add about 40 minutes: do them if time allows, or at home.
-
-**Why 2022?** Sessions 5 and 6 use 2022, the latest year with good country coverage (Session 4 used 2019, the last year before COVID-19).
 
 ```{r}
 #| label: setup
@@ -38,17 +35,31 @@ source(here("R", "theme_cours.R"))   # theme_cours(), pal_cours, pal_regions
 
 wdi <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
 
-# Cross-section used in most examples: latest year with good coverage.
-# Central African Republic 2022 (life_exp = 18.8) is an implausible value
-# (next lowest: 53.9), flagged in Session 5: we exclude it from life-expectancy charts.
+# CAF life expectancy is unreliable in this WDI release (14.7 in 2009, 18.8 in 2022): exclude every year
+wdi <- wdi |> mutate(life_exp = if_else(iso3c == "CAF", NA_real_, life_exp))
+
+# Cross-section used in most examples: latest year with good coverage
 wdi_2022 <- wdi |>
-  filter(year == 2022, !(iso3c == "CAF")) |>
+  filter(year == 2022) |>
   drop_na(gdp_pc_ppp, life_exp, region)
 ```
 
-## Faceting: small multiples (≈ 30 min, Exercise 6.1 included)
+As in Session 4 (§"Check extremes first"), the Central African Republic's life-expectancy series is set to missing for every year: it is unreliable in this WDI release, so every life-expectancy chart and mean below leaves CAF out.
 
-**After this section you can split any chart into comparable panels, and tell when free scales mislead.**
+**Script of this session:** [download seance-6.R](../scripts/seance-6.R){download="seance-6.R"}, all the code of this page in one file.
+:::
+
+We keep the running question of the course: **growth, health and inequality, what do the data say about developing countries?** All charts use the World Bank panel `data/wdi_panel.csv` (country × year, 2000–2023).
+
+**Pacing.** The core path takes about 180 minutes, exercises included. Parts marked **Optional: going further** (custom theme and Exercise 6.2, crosstalk, Shiny) add about 40 minutes: do them if time allows, or at home.
+
+**Why 2022?** Sessions 5 and 6 use 2022, the latest year with good country coverage (Session 4 used 2019, the last year before COVID-19).
+
+## Faceting: small multiples
+
+::: {.section-goal}
+[≈ 30 min, Exercise 6.1 included]{.duration} After this section you can split any chart into comparable panels, and tell when free scales mislead.
+:::
 
 A **facet** splits one chart into **panels**, one per value of a categorical variable. Every panel uses the same axes, so the eye compares shapes at once. It is often better than 7 overlapping colours.
 
@@ -60,6 +71,7 @@ Think of a **comic strip**: the same drawing frame repeated, one panel per chara
 ### `facet_wrap()`: one variable, panels wrapped in a grid
 
 ```{r}
+#| fig-alt: "Scatterplot of life expectancy against GDP per capita (log scale), one panel per World Bank region. Every panel shows an upward cloud of countries; panels sit at different heights."
 #| fig-width: 10
 #| fig-height: 6
 ggplot(wdi_2022, aes(x = gdp_pc_ppp, y = life_exp)) +
@@ -94,10 +106,10 @@ Notes:
 Facets work well for time series. Here is the average life expectancy by region (a simple mean of countries, **not** population-weighted).
 
 ```{r}
+#| fig-alt: "Line chart of average life expectancy from 2000 to 2023, one panel per region. Every line trends upward, with a dip in 2020-21 (the COVID-19 years) of about half a year to two years."
 #| fig-width: 10
 #| fig-height: 6
 trend_region <- wdi |>
-  filter(!(iso3c == "CAF" & year == 2022)) |>   # implausible value, see setup
   drop_na(life_exp, region) |>
   summarise(life_exp = mean(life_exp), .by = c(region, year))
 
@@ -120,17 +132,17 @@ ggplot(trend_region, aes(x = year, y = life_exp)) +
 
 ### `facet_grid()`: two variables, rows × columns
 
-`facet_grid(rows ~ columns)` crosses two variables. Here: income group (rows) and two years (columns).
+`facet_grid(rows ~ columns)` crosses two variables. Here: income group (rows) and two years (columns). The `income` column is the World Bank's **current** income classification, applied to every year: a country appears in today's group in 2000 as well, even if it has since changed group. The same holds for Exercise 6.1.
 
 ```{r}
+#| fig-alt: "Grid of scatterplots of life expectancy against GDP per capita (log scale), income groups (current World Bank classification) in rows and 2000 and 2022 in columns. The upward link looks weaker within each income group."
 #| fig-width: 10
 #| fig-height: 6
 income_levels <- c("Low income", "Lower middle income",
                    "Upper middle income", "High income")
 
 wdi |>
-  filter(year %in% c(2000, 2022), income %in% income_levels,
-         !(iso3c == "CAF" & year == 2022)) |>   # implausible value, see setup
+  filter(year %in% c(2000, 2022), income %in% income_levels) |>
   drop_na(gdp_pc_ppp, life_exp) |>
   mutate(income = factor(income, levels = income_levels)) |>
   ggplot(aes(x = gdp_pc_ppp, y = life_exp)) +
@@ -142,7 +154,7 @@ wdi |>
     title = "Within income groups, the income-health link looks weaker",
     x = "GDP per capita, PPP (constant 2021 int. $, log scale)",
     y = "Life expectancy at birth (years)",
-    caption = "Source: World Bank, World Development Indicators (WDI), 2000 and 2022. One point = one country."
+    caption = "Source: World Bank, World Development Indicators (WDI), 2000 and 2022. One point = one country. Rows: income group (current World Bank classification)."
   )
 ```
 
@@ -153,6 +165,7 @@ Note the `factor(..., levels = ...)`: it puts the income groups in their natural
 By default all panels share the same axes (`scales = "fixed"`). You can free them with `scales = "free"`, `"free_x"` or `"free_y"`.
 
 ```{r}
+#| fig-alt: "Four line charts of life expectancy by year for selected regions, each panel with its own y-axis. Every panel fills its box, so North America's gain of about 3 years since 2000 looks as large as Sub-Saharan Africa's 11, and the COVID-19 dips in Europe and North America look dramatic."
 #| fig-width: 10
 #| fig-height: 5
 trend_region |>
@@ -162,7 +175,7 @@ trend_region |>
   geom_line(linewidth = 1, colour = pal_cours[["principal"]]) +
   facet_wrap(~ region, scales = "free_y", nrow = 1) +
   labs(
-    title = "Free y-axes: every region looks like a steady climb",
+    title = "Free y-axes: North America's 3-year gain looks as large as Africa's 11-year gain",
     subtitle = "Careful: the panels no longer share a scale",
     x = NULL, y = "Life expectancy at birth (years)",
     caption = "Source: World Bank, World Development Indicators (WDI), 2000-2023. Unweighted mean of countries."
@@ -172,6 +185,7 @@ trend_region |>
 For comparison, here are the same four regions with the default **fixed** scale.
 
 ```{r}
+#| fig-alt: "Four line charts of life expectancy by year for the same regions on a shared y-axis. Regions differ clearly in level; Sub-Saharan Africa and South Asia rise the most."
 #| fig-width: 10
 #| fig-height: 5
 trend_region |>
@@ -187,7 +201,7 @@ trend_region |>
   )
 ```
 
-Same data, two stories: the free-scale version hides the **gaps in level** that the fixed version shows.
+Same data, two stories: the free-scale version hides the **gaps in level** and magnifies small changes. North America gained about 3 years from 2000 to 2023 and Sub-Saharan Africa about 11, yet both lines fill their panel; and a COVID-19 dip of about one year in North America and 1.5 years in Europe & Central Asia looks like a crash.
 
 ::: {.callout-warning}
 ## Common mistake
@@ -201,9 +215,10 @@ Using `wdi`, draw the share of the population with access to electricity (`elec_
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 
 ```{r}
+#| fig-alt: "Line charts of electricity access (%) by year, one panel per income group: thin grey lines for countries, a blue line for the group mean. Access is near-universal in rich groups and lower in poor ones."
 #| fig-width: 10
 #| fig-height: 6
 elec <- wdi |>
@@ -228,17 +243,18 @@ ggplot(elec, aes(x = year, y = elec_access)) +
 ```
 :::
 
-## Themes: controlling the look (≈ 20 min)
+## Themes: controlling the look
 
-### How `theme()` works
-
-**After this section you can restyle any chart, and set one look for a whole project.**
+::: {.section-goal}
+[≈ 20 min]{.duration} After this section you can restyle any chart, and set one look for a whole project.
+:::
 
 ### Before and after: what the techniques buy
 
 Left, a chart with ggplot's defaults. Right, the same data after this session's techniques: a message title, units, one highlighted group, a source. The data and the geometry are identical; only the **communication** changed.
 
 ```{r}
+#| fig-alt: "Two scatterplots of life expectancy against GDP per capita (log scale). Left, ggplot defaults; right, a titled version with Sub-Saharan Africa highlighted in red at the low end."
 #| layout-ncol: 2
 #| fig-width: 6
 #| fig-height: 5
@@ -291,6 +307,7 @@ Adding `theme_minimal()` or `theme_cours()` **after** your own `theme()` tweaks:
 :::
 
 ```{r}
+#| fig-alt: "Scatterplot of life expectancy against GDP per capita (log scale) with a restyled title in the accent colour. Life expectancy rises with income."
 #| fig-width: 8
 #| fig-height: 5
 p_base <- ggplot(wdi_2022, aes(x = gdp_pc_ppp, y = life_exp)) +
@@ -311,11 +328,12 @@ p_base +
   )
 ```
 
-### Build a small custom theme (Optional — going further, ≈ 10 min)
+### Build a small custom theme (Optional: going further, ≈ 10 min)
 
 A **custom theme** is a **function that returns a theme**. Build it on top of `theme_cours()` and change only what you need. Do not set a `family =` for fonts unless you are sure the font exists on every machine: an unavailable font silently falls back to a default or triggers warnings. The generic families `"sans"`, `"serif"` and `"mono"` always exist.
 
 ```{r}
+#| fig-alt: "Scatterplot of life expectancy against GDP per capita (log scale) on a dark blue background with light text and blue points. Life expectancy rises with income."
 #| fig-width: 8
 #| fig-height: 5
 theme_cours_dark <- function(base_size = 14) {
@@ -351,22 +369,23 @@ Open `R/theme_cours.R` in the project. It does three things:
 That last line is why the plots on this page need no `+ theme_...()`. In your own projects, put a theme file in `R/`, `source()` it at the top of each script, and all your figures share one look. Changing the style later means editing one place.
 
 ```{r}
-# What is the current default theme? (it is a function-like object; compare one setting)
+# What is the current default theme? (a theme is a list of settings: print one of them)
 theme_get()$legend.position
 ```
 
 You can set a default for a single plot with `+ theme_minimal()`, or restore the ggplot2 default with `theme_set(theme_grey())`.
 
 ::: {.callout-tip}
-## Exercise 6.2 (Optional — going further)
+## Exercise 6.2 (Optional: going further)
 
 Write a function `theme_cours_print()` based on `theme_cours()` that (i) uses `base_size = 12`, (ii) puts the legend at the top, and (iii) removes all grid lines except the horizontal major ones. Apply it to the scatterplot `p_base` coloured by region (use `pal_regions`).
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 
 ```{r}
+#| fig-alt: "Scatterplot of life expectancy against GDP per capita (log scale), points coloured by region, legend on top. Life expectancy rises with income in every region."
 #| fig-width: 8
 #| fig-height: 6
 theme_cours_print <- function(base_size = 12) {
@@ -394,9 +413,11 @@ ggplot(wdi_2022, aes(x = gdp_pc_ppp, y = life_exp, colour = region)) +
 ```
 :::
 
-## Annotations and reference lines (≈ 15 min)
+## Annotations and reference lines
 
-**After this section you can point the reader to the finding with lines, labels and shaded zones.**
+::: {.section-goal}
+[≈ 15 min]{.duration} After this section you can point the reader to the finding with lines, labels and shaded zones.
+:::
 
 A chart that carries a message **says** it. Annotations point the reader to what matters. Three tools:
 
@@ -407,10 +428,10 @@ A chart that carries a message **says** it. Annotations point the reader to what
 Example: global life expectancy around the COVID-19 pandemic. We use the population-weighted world mean, since an unweighted mean of countries counts Tuvalu like India.
 
 ```{r}
+#| fig-alt: "Line chart of world population-weighted life expectancy, 2000 to 2023, with a shaded band and dashed line for the COVID-19 years 2020-21. The line dips after 2019 and recovers by 2023."
 #| fig-width: 8
 #| fig-height: 5
 life_world <- wdi |>
-  filter(!(iso3c == "CAF" & year == 2022)) |>   # implausible value, see setup
   drop_na(life_exp, population) |>
   summarise(life_exp = weighted.mean(life_exp, w = population), .by = year)
 
@@ -438,19 +459,21 @@ ggplot(life_world, aes(x = year, y = life_exp)) +
 ## How to read this chart
 - The blue line is the world's population-weighted life expectancy, year by year.
 - The shaded band and dashed line mark the pandemic years (2020-21).
-- Look at the **size of the dip** against the long upward trend before it: the pandemic reversed roughly a few years of progress, and the recovery is visible by 2023.
+- Look at the **size of the dip** against the long upward trend before it: the 2021 level is close to that of 2011, so the pandemic erased about ten years of progress; the line is back above its 2019 level from 2022.
 :::
 
-Between 2019 and 2021 the weighted mean moved from `r round(le_2019_2021[1], 1)` to `r round(le_2019_2021[2], 1)` years; in 2023 it stood at `r round(le_2019_2021[3], 1)` years.
+Between 2019 and 2021 the weighted mean moved from `r nb(le_2019_2021[1], 1)` to `r nb(le_2019_2021[2], 1)` years; in 2023 it stood at `r nb(le_2019_2021[3], 1)` years.
 
 ::: {.callout-warning}
 ## Common mistake
 **Dishonest axes.** A line chart does not need to start at zero, but be aware that the y-axis range changes the visual impression of the fall. Here the axis follows the data; state the numbers (as in the sentence above) so that readers are not misled by the slope alone.
 :::
 
-## Combining plots with patchwork (≈ 25 min)
+## Combining plots with patchwork
 
-**After this section you can combine several charts into one labelled figure.**
+::: {.section-goal}
+[≈ 25 min]{.duration} After this section you can combine several charts into one labelled figure.
+:::
 
 **patchwork** assembles several ggplot objects with arithmetic operators:
 
@@ -463,6 +486,7 @@ Between 2019 and 2021 the weighted mean moved from `r round(le_2019_2021[1], 1)`
 Then `plot_annotation()` adds a global title, caption and panel tags, and `plot_layout()` controls widths, heights and guides. (There is also `cowplot`; one tool is enough, we only use patchwork.)
 
 ```{r}
+#| fig-alt: "Three-panel figure. A: scatter of life expectancy against GDP per capita by region. B: boxplots of life expectancy by region. C: histogram of life expectancy. Regions differ and overlap widely."
 #| fig-width: 10
 #| fig-height: 6
 p_scatter <- ggplot(wdi_2022, aes(x = gdp_pc_ppp, y = life_exp, colour = region)) +
@@ -518,9 +542,10 @@ Build a two-panel figure side by side: (A) the life expectancy time series by re
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 
 ```{r}
+#| fig-alt: "Two panels. A: life expectancy by year, one line per region, all rising. B: electricity access against GDP per capita in 2021 (log scale), points by region; richer countries have higher access."
 #| fig-width: 10
 #| fig-height: 6
 # Only panel B keeps a legend: both panels use the same colours
@@ -552,9 +577,11 @@ pB <- wdi |>
 ```
 :::
 
-## Exporting figures with `ggsave()` (≈ 5 min)
+## Exporting figures with `ggsave()`
 
-**After this section you can export a figure from code at the exact size you need.**
+::: {.section-goal}
+[≈ 5 min]{.duration} After this section you can export a figure from code at the exact size you need.
+:::
 
 Never export by screenshot. `ggsave()` writes a file at an exact size and resolution, from code, so the figure is reproducible.
 
@@ -583,20 +610,22 @@ Rules of thumb for sizes:
 
 ::: {.callout-warning}
 ## Common mistake
-Exporting at 25 cm and shrinking to 15 cm in Word: the text becomes unreadable. **Rule: text at least 12 pt at final size.** Export at the final size, then check the text.
+Exporting at 25 cm and shrinking to 15 cm in Word: the text becomes unreadable. **Rule: at final size, titles and axis titles at least 11 pt, and no text (tick labels, caption) below 8 pt.** With `theme_cours(base_size = 11)` exported at the final size you get exactly that: title about 13 pt, axis titles 11 pt, tick labels about 9 pt. Export at the final size, then check the text.
 :::
 
 Sizing is a design decision: if you export a chart at 25 cm and shrink it to 15 cm in Word, the text becomes unreadable. Export at the **final printed size**, with `base_size` set to match (`theme_cours(base_size = 11)`).
 
 These chunks use `eval: false`: running them on this page would write files. Run them in your own project; the files appear in `output/`.
 
-## Interactivity with plotly (≈ 15 min, Exercise 6.4 included)
+## Interactivity with plotly
 
-**After this section you can make a chart interactive for the web, and know when not to.**
+::: {.section-goal}
+[≈ 15 min, Exercise 6.4 included]{.duration} After this section you can make a chart interactive for the web, and know when not to.
+:::
 
 `ggplotly()` converts a ggplot into an interactive HTML widget: hover, zoom, click on the legend to hide a group. It works in HTML pages and in the RStudio Viewer, not in Word or PDF.
 
-The tooltip is controlled by the `text` aesthetic. We build a label with the country name and values, then select it with `tooltip = "text"`.
+The tooltip is controlled by an aesthetic that carries its text, here `label`. We build a label with the country name and values, map it with `label = tip`, then select it with `tooltip = "label"`.
 
 ```{r}
 #| fig-width: 8
@@ -621,7 +650,8 @@ p_int <- ggplot(wdi_hover, aes(x = gdp_pc_ppp, y = life_exp,
     y = "Life expectancy at birth (years)"
   )
 
-ggplotly(p_int, tooltip = "label")
+ggplotly(p_int, tooltip = "label") |>
+  layout(legend = list(orientation = "h", x = 0, y = -0.3), margin = list(b = 120))
 ```
 
 Notes:
@@ -630,7 +660,7 @@ Notes:
 - `tooltip = "label"` shows only that field, instead of the default x, y, colour.
 - The legend and title are rendered by plotly: the source caption is not carried over, so put the source in the surrounding text of the page.
 
-### Linked charts with crosstalk (Optional — going further, ≈ 10 min)
+### Linked charts with crosstalk (Optional: going further, ≈ 10 min)
 
 `crosstalk` connects widgets that share the same data. Below, a drop-down filters **two** charts at once, and selecting points in one highlights them in the other.
 
@@ -681,7 +711,7 @@ Turn the faceted chart of life expectancy against GDP per capita (section "Facet
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 
 ```{r}
 #| fig-width: 10
@@ -700,13 +730,16 @@ ggplotly(p_facet_int, tooltip = "label")
 ```
 :::
 
-## Shiny: an app is a function of its inputs (Optional — going further, ≈ 15 min)
+## Shiny: an app is a function of its inputs (Optional: going further, ≈ 15 min)
 
-**After this section you can read a Shiny app and say what each part does.**
+::: {.section-goal}
+After this section you can read a Shiny app and say what each part does.
+:::
 
 **Shiny** builds web applications in R. An app has two parts: a `ui` (what the user sees: menus, sliders, plot area) and a `server` (R code that recomputes outputs when an input changes).
 
 ```{mermaid}
+%%| echo: false
 flowchart LR
   A[User moves a control] --> B[input$year, input$region]
   B --> C[server recomputes]
@@ -788,11 +821,13 @@ What to read in this code:
 
 Shiny apps are deployed on a server (shinyapps.io, Posit Connect) to be shared: out of scope here.
 
-## Reproducible reports with Quarto (≈ 25 min)
+## Reproducible reports with Quarto
 
 ### Why a literate document?
 
-**After this section you can write a report that regenerates its own numbers and figures.**
+::: {.section-goal}
+[≈ 25 min]{.duration} After this section you can write a report that regenerates its own numbers and figures.
+:::
 
 Without it, the workflow is: run a script, copy a figure into Word, retype the numbers. When the data or the code changes, you redo everything by hand, and a stale number slips through. In a **literate document**, text, code, figures and numbers live in the same file: you render it, and everything is regenerated from the data. The report is its own audit trail.
 
@@ -805,6 +840,7 @@ Without it, the workflow is: run a script, copy a figure into Word, retype the n
 This course website is itself built with Quarto.
 
 ```{mermaid}
+%%| echo: false
 flowchart LR
   A[".qmd file"] --> B["knitr runs the R code"]
   B --> C["Markdown with results"]
@@ -831,7 +867,6 @@ Rendering **re-runs all the code**. Numbers in the text come from the data, so t
 **Code chunk**: R code between ```` ```{r} ```` fences, with options such as `#| fig-cap:`. Output (tables, figures) appears right below.
 :::
 
-
 ### A minimal report
 
 Create a new file with *File > New File > Quarto Document*, save it as `report.qmd` in your project, and paste the template below. The markdown fence below only *shows* the file, it is not run.
@@ -855,6 +890,8 @@ library(tidyverse)
 library(here)
 
 wdi <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
+# CAF life expectancy is unreliable in this WDI release (14.7 in 2009, 18.8 in 2022): exclude every year
+wdi <- wdi |> mutate(life_exp = if_else(iso3c == "CAF", NA_real_, life_exp))
 wdi_2022 <- wdi |> filter(year == 2022) |> drop_na(gdp_pc_ppp, life_exp)
 ```
 
@@ -900,9 +937,11 @@ Rendering from the wrong folder, so `here()` or relative paths fail. **Fix:** ke
 Create `report.qmd` from the template above. Render it to HTML and to Word. Then change the year to 2010, render again, and check that the number of countries and the mean life expectancy in the text changed by themselves.
 :::
 
-## Capstone: the figure for the "note au ministre" (≈ 45 min)
+## Capstone: the figure for the "note au ministre"
 
-**After this section you can produce a policy-ready figure and check it against a six-point list.**
+::: {.section-goal}
+[≈ 45 min]{.duration} After this section you can produce a policy-ready figure and check it against a six-point list.
+:::
 
 The French dataviz workshop ([Atelier dataviz](../slides/atelier-dataviz.qmd)) prepares a **policy brief to a minister** ("note au ministre"). Your task here is to produce its key figure.
 
@@ -915,18 +954,19 @@ Choose **one indicator** and **one comparison** that matter for a development to
 - [ ] **One message**: one indicator, one comparison, nothing else.
 - [ ] **Units** on the axes (%, years, US$ and their base year); readable numbers (no `1e+09`).
 - [ ] **Source** in the caption, with the year.
-- [ ] **Readable**: text at least 12 pt at final size, no overlapping labels, colour used for emphasis (e.g. `pal_cours[["accent"]]` for the focus, grey for the rest), colour-blind safe.
+- [ ] **Readable**: at final size, titles at least 11 pt and no text below 8 pt, no overlapping labels, colour used for emphasis (e.g. `pal_cours[["accent"]]` for the focus, grey for the rest), colour-blind safe.
 - [ ] **Honest**: sensible axis, no truncated bars, sample and limits stated (missing countries, unweighted mean, correlation is not causation).
 
 Save it with `ggsave()` at a size suited to a Word note (16 × 10 cm, 300 dpi). Write two sentences below it: what the reader should retain, and one limit.
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution (one possible answer)
+## Show solution (one possible answer)
 
 *Topic: energy access in Sub-Saharan Africa. Indicator: access to electricity. Comparison: 2000 versus 2022, for the 12 countries with the lowest access today.*
 
 ```{r}
+#| fig-alt: "Dot-and-segment chart for the 12 Sub-Saharan countries with the lowest electricity access in 2022: grey dot for 2000, red dot for 2022, ordered by 2022 access. Every country gained."
 #| fig-width: 8
 #| fig-height: 5
 elec_ssa <- wdi |>

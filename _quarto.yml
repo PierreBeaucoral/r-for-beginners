@@ -5,10 +5,26 @@ project:
     - "*.qmd"
     - "seances/*.qmd"
     - "slides/*.qmd"
+  pre-render: tools/make_scripts.R   # scripts/seance-N.R, per language
   resources:
     - data.zip
+    - scripts/*.R
+    - assets/fonts/*.woff2   # for slides/fonts.css
 
 lang: en
+
+babelquarto:
+  languagelinks: navbar
+  icon: "bi bi-translate"
+  languagecodes:
+    - name: en
+      text: "EN"
+    - name: fr
+      text: "FR"
+  mainlanguage: "en"
+  languages: ["fr"]
+title-fr: "R pour l'analyse de données : niveau débutant"
+description-fr: "Cours d'initiation à R pour les étudiants du Master GPE (CERDI / IHEDD) : importer, manipuler, décrire, visualiser et présenter des données de développement."
 
 website:
   title: "R for data analysis: beginner level"
@@ -17,29 +33,8 @@ website:
   page-navigation: true
   back-to-top-navigation: true
   navbar:
-    background: primary
+    title: "R for beginners"
     search: true
-    left:
-      - text: "Home"
-        href: index.qmd
-      - text: "Sessions"
-        menu:
-          - text: "1: Getting started with R and RStudio"
-            href: seances/seance-1.qmd
-          - text: "2: Importing and exporting data"
-            href: seances/seance-2.qmd
-          - text: "3: Data manipulation (dplyr, tidyr, joins)"
-            href: seances/seance-3.qmd
-          - text: "4: Descriptive statistics and regression"
-            href: seances/seance-4.qmd
-          - text: "5: Visualising with ggplot2 (and maps)"
-            href: seances/seance-5.qmd
-          - text: "6: Advanced visualisation and Quarto reports"
-            href: seances/seance-6.qmd
-      - text: "Dataviz workshop (FR)"
-        href: slides/atelier-dataviz.qmd
-      - text: "Resources"
-        href: resources.qmd
     right:
       - icon: github
         href: https://github.com/PierreBeaucoral/r-for-beginners
@@ -54,7 +49,7 @@ format:
       - cosmo
       - theme.scss
     toc: true
-    toc-depth: 3
+    toc-depth: 2
     toc-title: "On this page"
     number-sections: false
     code-tools: false
@@ -64,6 +59,9 @@ format:
     fig-align: center
     fig-cap-location: bottom
     smooth-scroll: true
+    grid:
+      body-width: 880px
+    include-after-body: assets/course-ui.html
     link-external-newwindow: true
     mermaid:
       theme: neutral

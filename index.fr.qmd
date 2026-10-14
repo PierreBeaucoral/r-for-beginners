@@ -1,0 +1,150 @@
+---
+title: "R pour l'analyse de données"
+subtitle: "Cours pour débutants · Master GPE (CERDI / IHEDD)"
+description: "Six séances pour apprendre R : importer, manipuler, décrire, visualiser et présenter des données de développement."
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(here)
+library(scales)
+source(here("R", "theme_cours.R"))
+```
+
+Six séances pour apprendre R en partant de zéro, destinées aux étudiants du **Master GPE** (économie du développement). **Aucun prérequis** : vous commencez par installer R et terminez par un rapport reproductible construit sur les données de la Banque mondiale.
+
+::: {.hero-actions}
+[Commencer la séance 1](seances/seance-1.qmd){.btn .btn-primary .btn-lg}
+[Télécharger les données](data.zip){.btn .btn-outline-primary .btn-lg}
+:::
+
+## Les six séances
+
+```{=html}
+<div class="grid-cards">
+<a class="card-tile" href="seances/seance-1.html">
+<span class="num"><span class="visually-hidden">Séance </span>1</span>
+<h3>Premiers pas avec R et RStudio</h3>
+<p>Interface, objets, fonctions, packages, projets RStudio et chemins avec <code>here()</code>.</p>
+</a>
+<a class="card-tile" href="seances/seance-2.html">
+<span class="num"><span class="visually-hidden">Séance </span>2</span>
+<h3>Importer et exporter des données</h3>
+<p>CSV, Excel, fichiers mal formés ; nettoyer les noms de colonnes ; sauvegarder vos résultats.</p>
+</a>
+<a class="card-tile" href="seances/seance-3.html">
+<span class="num"><span class="visually-hidden">Séance </span>3</span>
+<h3>Manipuler les données</h3>
+<p><code>dplyr</code>, <code>tidyr</code>, jointures : filtrer, transformer, agréger, fusionner des sources.</p>
+</a>
+<a class="card-tile" href="seances/seance-4.html">
+<span class="num"><span class="visually-hidden">Séance </span>4</span>
+<h3>Statistiques descriptives et régression</h3>
+<p>Résumer les données, corrélations, régression linéaire et ses limites.</p>
+</a>
+<a class="card-tile" href="seances/seance-5.html">
+<span class="num"><span class="visually-hidden">Séance </span>5</span>
+<h3>Visualiser avec ggplot2 (et cartes)</h3>
+<p>Grammaire des graphiques, nuages de points, séries temporelles, cartes du monde.</p>
+</a>
+<a class="card-tile" href="seances/seance-6.html">
+<span class="num"><span class="visually-hidden">Séance </span>6</span>
+<h3>Visualisation avancée et rapports Quarto</h3>
+<p>Graphiques interactifs, la figure finale et un rapport Quarto reproductible.</p>
+</a>
+</div>
+```
+
+::: {.secondary-links}
+**Aussi :** [Atelier dataviz](https://pierrebeaucoral.github.io/r-for-beginners/slides/atelier-dataviz.html) (diaporama) · [Ressources](resources.qmd) : livres, documentation, sources de données
+:::
+
+## Où nous allons
+
+> **Fil rouge : croissance, santé et inégalités, que disent les données sur les pays en développement ?**
+
+```{=html}
+<ol class="chain" aria-label="Le cours, une chaîne de six séances"><li><span>R et RStudio</span></li><li><span>Importer</span></li><li><span>Manipuler</span></li><li><span>Décrire</span></li><li><span>Visualiser</span></li><li><span>Présenter</span></li></ol>
+```
+
+**Importer** les données, les **manipuler**, les **décrire**, les **visualiser**, puis les **présenter** : chaque séance ajoute un maillon à la chaîne.
+
+Dès la séance 5, vous produirez des graphiques comme celui-ci : **les pays plus riches vivent plus longtemps, mais le gain s'atténue** (la « courbe de Preston »). Chaque point est un pays ; son aire indique sa population.
+
+```{r}
+#| label: hero-preston
+#| fig-alt: "Nuage de bulles de l'espérance de vie selon le PIB par habitant (échelle logarithmique) des pays en 2019, coloré par région, l'aire des bulles étant proportionnelle à la population. L'espérance de vie augmente avec le revenu, avec des gains décroissants aux revenus élevés."
+#| code-fold: true
+#| code-summary: "Afficher le code (vous l'écrirez à la séance 5)"
+#| fig-width: 8
+#| fig-height: 6.5
+wdi <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
+# l'espérance de vie de la RCA est peu fiable dans cette version des WDI (14,7 en 2009, 18,8 en 2022) : on l'exclut, toutes années
+wdi <- wdi |> mutate(life_exp = if_else(iso3c == "CAF", NA_real_, life_exp))
+
+wdi |>
+  filter(year == 2019, !is.na(gdp_pc_ppp), !is.na(life_exp), !is.na(region)) |>
+  ggplot(aes(x = gdp_pc_ppp, y = life_exp, size = population, colour = region)) +
+  geom_point(alpha = 0.7) +
+  scale_x_log10(labels = label_dollar(scale_cut = cut_short_scale())) +
+  scale_size_area(max_size = 12, guide = "none") +
+  scale_colour_manual(values = pal_regions, labels = label_wrap(25)) +
+  guides(colour = guide_legend(nrow = 3, override.aes = list(size = 3))) +
+  labs(
+    title = "Les pays plus riches vivent plus longtemps, avec des rendements décroissants",
+    x = "PIB par habitant (en $ PPA constants de 2021, échelle logarithmique)",
+    y = "Espérance de vie à la naissance (années)",
+    colour = NULL,
+    caption = "Source : Banque mondiale, World Development Indicators (WDI), 2019. Aire des bulles = population."
+  )
+```
+
+## Avant la première séance
+
+::: {.callout-important}
+## À faire chez vous
+
+1. Installez **R** : <https://cran.r-project.org/>.
+2. Installez **RStudio Desktop** : <https://posit.co/download/rstudio-desktop/> (après R).
+3. Dans RStudio : *File > New Project > New Directory* et créez un dossier de projet nommé `r-course`.
+4. Téléchargez **[data.zip](data.zip)** et décompressez-le **dans le dossier `r-course`**, de sorte que `data/` et `R/theme_cours.R` soient à côté du fichier `.Rproj` (`here::here()` en dépend).
+5. Installez les packages : collez le bloc ci-dessous dans la **Console** de RStudio et exécutez-le **une seule fois**. Cela prend quelques minutes.
+:::
+
+```r
+install.packages(c("tidyverse", "here", "janitor", "readxl", "writexl",
+                   "lubridate", "scales", "WDI", "gt", "fixest",
+                   "modelsummary", "ggrepel", "sf", "rnaturalearth",
+                   "rnaturalearthdata", "patchwork", "plotly", "crosstalk",
+                   "shiny"))
+```
+
+Arborescence attendue :
+
+```
+r-course/
+├── r-course.Rproj
+├── data/
+│   ├── wdi_panel.csv
+│   ├── ...
+│   └── raw/
+└── R/
+    └── theme_cours.R
+```
+
+## Comment utiliser ce site
+
+- Chaque séance suit le même plan : objectifs, explications avec code, **exercices**, puis « À retenir ».
+- Tapez le code vous-même dans RStudio plutôt que de le copier : c'est ainsi que l'on apprend.
+- **Les solutions sont repliées** : essayez d'abord, puis ouvrez pour comparer.
+- Une erreur n'est pas un échec : lisez le message, il indique presque toujours ce qui ne va pas.
+
+## IA et code
+
+Les assistants d'IA peuvent expliquer un message d'erreur ou une fonction inconnue. Ils ne doivent pas remplacer votre apprentissage. **Exécutez toujours le code proposé et comprenez chaque ligne** avant de l'utiliser : un code qui s'exécute n'est pas forcément correct.
+
+---
+
+Contenu sous licence [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/), comme pierrebeaucoral.github.io. Dernière mise à jour : octobre 2026.

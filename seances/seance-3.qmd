@@ -14,6 +14,9 @@ Session objectives
 
 :::
 
+::: {.prepare}
+Prepare your R session
+
 **Packages used today:** `tidyverse`, `here`. If one is missing: `install.packages(c("tidyverse", "here"))`.
 
 ```{r}
@@ -24,7 +27,12 @@ library(here)
 source(here("R", "theme_cours.R"))
 
 wdi <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
+# CAF life expectancy is unreliable in this WDI release (14.7 in 2009, 18.8 in 2022): exclude every year
+wdi <- wdi |> mutate(life_exp = if_else(iso3c == "CAF", NA_real_, life_exp))
 ```
+
+**Script of this session:** [download seance-3.R](../scripts/seance-3.R){download="seance-3.R"}, all the code of this page in one file.
+:::
 
 The question that runs through the course: **"Growth, health and inequality: what do the data say about developing countries?"** Today we use the World Bank panel (all countries, 2000-2023) and learn to cut it into the pieces we need.
 
@@ -32,17 +40,22 @@ The question that runs through the course: **"Growth, health and inequality: wha
 glimpse(wdi)
 ```
 
-Each row is a country-year: `r n_distinct(wdi$iso3c)` countries, `r n_distinct(wdi$year)` years, `r nrow(wdi)` rows.
+Each row is a country-year: `r n_distinct(wdi$iso3c)` countries, `r n_distinct(wdi$year)` years, `r nb(nrow(wdi), 0)` rows.
 
-## The pipe and the main verbs (≈ 35 min)
+The setup already applies one correction: the life expectancy of the Central African Republic (`CAF`) is set to missing (`NA`) for every year, because this release of the series is unreliable (Session 4 shows it). So the summaries of `life_exp` below use `na.rm = TRUE`, which skips missing values; we explain it in the section on missing values.
 
-**After this section you can write a chain of `dplyr` verbs that filters, selects, sorts and creates variables.**
+## The pipe and the main verbs
+
+::: {.section-goal}
+[≈ 35 min]{.duration} After this section you can write a chain of `dplyr` verbs that filters, selects, sorts and creates variables.
+:::
 
 ### The pipe `|>`
 
 The pipe takes what is on its left and passes it as the **first argument** of the function on its right. Read it as "and then".
 
 ```{mermaid}
+%%| echo: false
 flowchart LR
   A[wdi] --> B["filter(year == 2020)"]
   B --> C["select(country, life_exp)"]
@@ -130,16 +143,6 @@ wdi |>
   head(3)
 ```
 
-To keep only some columns afterwards, add a `select()` step:
-
-```{r}
-wdi |>
-  filter(year == 2020) |>
-  mutate(gdp_bn = gdp / 1e9) |>
-  select(country, gdp_bn) |>
-  head(3)
-```
-
 `rename(new_name = old_name)` changes a column name:
 
 ```{r}
@@ -168,6 +171,7 @@ wdi_2020 |> count(elec_level)
 ```
 
 ```{r}
+#| fig-alt: "Horizontal bar chart of the number of countries in each electricity-access level in 2020. The longest bar is the highest level: most countries have near-universal access."
 #| code-fold: true
 #| code-summary: "Show the chart code (taught in Session 5)"
 #| fig-width: 8
@@ -188,15 +192,18 @@ wdi_2020 |>
 
 `count()` is a shortcut for "group and count the rows". We come back to it below.
 
-## Summarising by group, and missing values (≈ 30 min)
+## Summarising by group, and missing values
 
-**After this section you can compute a statistic by group, and say how many observations it rests on.**
+::: {.section-goal}
+[≈ 30 min]{.duration} After this section you can compute a statistic by group, and say how many observations it rests on.
+:::
 
 ### `group_by()` + `summarise()`
 
 `summarise()` collapses many rows into one. Combined with `group_by()` it gives **one row per group**. `n()` counts the rows of each group.
 
 ```{mermaid}
+%%| echo: false
 flowchart LR
   A["wdi, 2020 (one row per country)"] --> B["group_by(region)"]
   B --> C["summarise(mean_life = mean(life_exp))"]
@@ -209,7 +216,7 @@ wdi |>
   group_by(region) |>
   summarise(
     n_countries = n(),
-    median_life = median(life_exp),
+    median_life = median(life_exp, na.rm = TRUE),
     median_gdp_pc = median(gdp_pc_ppp)
   )
 ```
@@ -220,12 +227,13 @@ Here is the same logic with the mean, saved so that we can plot it:
 life_by_region <- wdi |>
   filter(year == 2020) |>
   group_by(region) |>
-  summarise(mean_life = mean(life_exp), n_countries = n())
+  summarise(mean_life = mean(life_exp, na.rm = TRUE), n_countries = sum(!is.na(life_exp)))
 
 life_by_region
 ```
 
 ```{r}
+#| fig-alt: "Horizontal bars of mean life expectancy at birth in 2020 for each world region, sorted, with the number of countries labelled on each bar. Sub-Saharan Africa has the shortest bar, North America among the longest."
 #| code-fold: true
 #| code-summary: "Show the chart code (taught in Session 5)"
 #| fig-width: 8
@@ -256,7 +264,7 @@ How many `NA` per column in our panel?
 wdi |> summarise(across(everything(), \(x) sum(is.na(x))))
 ```
 
-`gini` is missing for `r scales::percent(mean(is.na(wdi$gini)), accuracy = 1)` of the country-years: inequality is measured by household surveys, which are not run every year. Three tools:
+`gini` is missing for `r nb_pct(100 * mean(is.na(wdi$gini)))` of the country-years: inequality is measured by household surveys, which are not run every year. Three tools:
 
 - `is.na(x)` returns `TRUE` where `x` is missing. Use it inside `filter()`.
 - `drop_na(var)` removes the rows where `var` is missing (without argument: any variable).
@@ -299,6 +307,7 @@ gdp_n_region
 Dropping the `NA` is not free. The chart shows how many countries each region loses:
 
 ```{r}
+#| fig-alt: "Stacked horizontal bars showing, for each region, the number of countries with GDP per capita kept and lost to missing values in 2020. The share lost differs widely across regions."
 #| code-fold: true
 #| code-summary: "Show the chart code (taught in Session 5)"
 #| fig-width: 8
@@ -327,7 +336,7 @@ Two details. `.groups = "drop"` removes the grouping from the result (otherwise 
 ```{r}
 wdi |>
   filter(year == 2020) |>
-  summarise(mean_life = mean(life_exp), n = n(), .by = income)
+  summarise(mean_life = mean(life_exp, na.rm = TRUE), n = n(), .by = income)
 ```
 
 `count()` is the quickest way to tabulate a categorical variable (`sort = TRUE` puts the largest first):
@@ -336,11 +345,13 @@ wdi |>
 wdi |> filter(year == 2020) |> count(income, sort = TRUE)
 ```
 
-## Factors: giving categories an order (≈ 10 min)
+## Factors: giving categories an order
 
-**After this section you can control the order in which categories appear in tables and charts.**
+::: {.section-goal}
+[≈ 10 min]{.duration} After this section you can control the order in which categories appear in tables and charts.
+:::
 
-R sorts text alphabetically, which is rarely what we want. Income groups have a natural order.
+R sorts text alphabetically, which is rarely what we want. Income groups have a natural order. Note that `income` is the World Bank's **current** classification, applied to every year: a country that has changed group since 2000 appears in its present-day group even in 2000.
 
 ::: {.definition}
 **Factor**: a variable with a fixed, ordered list of allowed categories (its `levels`). The order of the levels is the order used in tables and charts.
@@ -366,11 +377,12 @@ Now the table follows the economic order and not the alphabet. Other tools from 
 *Preview: `ggplot` is taught in Session 5. For now, just copy the pattern.*
 
 ```{r}
+#| fig-alt: "Horizontal bars of median life expectancy at birth in 2020 for each region, sorted from shortest to longest. Sub-Saharan Africa has the shortest bar."
 #| fig-width: 8
 #| fig-height: 5
 wdi |>
   filter(year == 2020) |>
-  summarise(median_life = median(life_exp), .by = region) |>
+  summarise(median_life = median(life_exp, na.rm = TRUE), .by = region) |>
   ggplot(aes(x = median_life, y = fct_reorder(region, median_life))) +
   geom_col(fill = pal_cours[["principal"]]) +
   labs(title = "Life expectancy is lowest in Sub-Saharan Africa",
@@ -386,9 +398,11 @@ Without `fct_reorder()`, the bars would be in alphabetical order and the message
 Typing a level with a slightly different spelling (`"Low Income"` instead of `"Low income"`): **R silently turns it into `NA`**. That is why we ran `unique(wdi$income)` first. After `factor()`, check with `count()` that no `NA` appeared.
 :::
 
-## Reshaping with tidyr: wide and long (≈ 25 min)
+## Reshaping with tidyr: wide and long
 
-**After this section you can switch a table between wide and long format with `pivot_wider()` and `pivot_longer()`.**
+::: {.section-goal}
+[≈ 25 min]{.duration} After this section you can switch a table between wide and long format with `pivot_wider()` and `pivot_longer()`.
+:::
 
 ### Tidy data in three rules
 
@@ -401,6 +415,7 @@ Our panel is tidy: one row per country-year, one column per variable (`year` is 
 But data downloaded from the World Bank website or an Excel sheet usually come *wide*: one column per year (`2000`, `2001`, ...). It is handy to read, but a year is a value, not a variable. Before analysing such data, you reshape them.
 
 ```{mermaid}
+%%| echo: false
 flowchart LR
   L["Long: one row per country-year"] -- "pivot_wider()" --> W["Wide: one column per year"]
   W -- "pivot_longer()" --> L
@@ -475,9 +490,11 @@ all.equal(as.data.frame(life_back), as.data.frame(life_long))
 After `pivot_longer()` with `names_prefix`, the new `year` column is **text**, not a number. Charts and filters on it then misbehave. Convert it with `as.integer()`, as above.
 :::
 
-## Joins: combining two tables (≈ 35 min)
+## Joins: combining two tables
 
-**After this section you can combine two tables safely and detect rows that failed to match.**
+::: {.section-goal}
+[≈ 35 min]{.duration} After this section you can combine two tables safely and detect rows that failed to match.
+:::
 
 Real projects use several sources: GDP from the World Bank, inequality from WID, trade from the OECD.
 
@@ -506,6 +523,7 @@ anti_join(data1, data2, by = "country")    # rows of data1 with NO match in data
 ```
 
 ```{mermaid}
+%%| echo: false
 flowchart LR
   subgraph X["x: US, CN, IN"]
     x1[US]
@@ -563,6 +581,7 @@ naive |>
 No error, no warning, the right number of rows. And yet **the United States has no Gini at all**:
 
 ```{r}
+#| fig-alt: "Horizontal bars of the number of years, 2000-2020, with a Gini found or missing for each country after the join on names. The United States has only missing values."
 #| code-fold: true
 #| code-summary: "Show the chart code (taught in Session 5)"
 #| fig-width: 8
@@ -600,7 +619,7 @@ gdp3 |>
 sum(is.na(naive$gini))
 ```
 
-The fix: **join on a standardised code, not on a name.** The ISO 3-letter code (`iso3c`) is the same in both sources. Names change ("Turkey" / "Turkiye", "Korea, Rep." / "South Korea"); codes do not.
+The fix: **join on a standardised code, not on a name.** The ISO 3-letter code (`iso3c`) is the same in both sources. Names change ("Turkey" / "Turkiye", "Korea, Rep." / "South Korea"); codes are far more stable. They still change now and then (Romania went from ROM to ROU, DR Congo from ZAR to COD), so run `anti_join()` anyway.
 
 ```{r}
 gdp_gini <- gdp3 |>
@@ -622,6 +641,7 @@ We selected only `iso3c`, `year` and `gini` from `wid`: otherwise `country` and 
 Now all three countries have a Gini, and we can finally compare inequality with income:
 
 ```{r}
+#| fig-alt: "Line chart of the Gini coefficient by year for China, India and the United States. All three lines rise over the period; China's rise comes mostly before 2010."
 #| code-fold: true
 #| code-summary: "Show the chart code (taught in Session 5)"
 #| fig-width: 8
@@ -637,6 +657,16 @@ gdp_gini |>
        colour = NULL,
        caption = "Source: World Bank WDI (GDP) joined with World Inequality Database (WID, Gini) on iso3c and year.")
 ```
+
+::: {.callout-note}
+## Two Ginis that are not comparable
+The `gini` column of `wdi` and the Gini of `wid` do not measure the same thing:
+
+- **WDI** (0-100): household surveys, often of **consumption** rather than income in low- and middle-income countries, India included.
+- **WID** (0-1): **pre-tax national income** among adults, combining surveys, tax records and national accounts.
+
+They even rank India differently. In WID, India is the most unequal of the three countries in 2020 (0.63, against 0.62 for the United States and 0.56 for China). In WDI, India's latest Gini (23.0 in 2023) is far below that of the United States (41.8 in 2023). Never put the two in the same column or compare one with the other.
+:::
 
 ::: {.callout-note}
 ## Why it matters for development economics
@@ -676,7 +706,7 @@ Take the Sub-Saharan African countries in 2020. Keep `country`, `income`, `life_
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 ssa_2020 <- wdi |>
   filter(region == "Sub-Saharan Africa", year == 2020) |>
@@ -694,7 +724,7 @@ Add the column `gdp_bn` (GDP in billions of US$) to the 2020 data and list the 5
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 wdi |>
   filter(year == 2020) |>
@@ -712,7 +742,7 @@ For each region **and** each year in 2000, 2010 and 2020, compute the median GDP
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 wdi |>
   filter(year %in% c(2000, 2010, 2020)) |>
@@ -732,18 +762,19 @@ Build a table with one row per region and one column per year (2000, 2010, 2020)
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 life_region <- wdi |>
   filter(year %in% c(2000, 2010, 2020)) |>
-  summarise(median_life = median(life_exp), .by = c(region, year)) |>
+  summarise(median_life = median(life_exp, na.rm = TRUE), .by = c(region, year)) |>
   pivot_wider(names_from = year, values_from = median_life, names_prefix = "y")
 
 life_region
 
 life_region |>
   pivot_longer(starts_with("y"), names_to = "year", names_prefix = "y",
-               values_to = "median_life")
+               values_to = "median_life") |>
+  mutate(year = as.integer(year))   # year comes back as text
 ```
 :::
 
@@ -753,7 +784,7 @@ Using `wdi`, build the table `elec` with `iso3c`, `year`, `elec_access` for 2020
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 elec <- wdi |>
   filter(year == 2020) |>

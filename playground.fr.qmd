@@ -1,0 +1,97 @@
+---
+title: "Essayer R dans le navigateur"
+subtitle: "Lancer R sans rien installer : modifiez le code, cliquez sur Run, voyez le résultat"
+description: "Une console R dans le navigateur (webR) pour essayer les bases de la séance 1 avant d'installer R."
+format:
+  live-html:
+    theme: [cosmo, theme.scss]
+    toc: false
+    grid:
+      body-width: 880px
+    include-after-body: assets/course-ui.html
+engine: knitr
+---
+
+{{< include assets/webr-knitr.md >}}
+
+Cette page fait tourner R **dans votre navigateur** (avec [webR](https://docs.r-wasm.org/webr/latest/), en anglais). Rien à installer, rien n'est enregistré : rechargez la page et tout repart de zéro. La première visite télécharge environ 10 Mo (R lui-même) et prend quelques secondes ; préférez le Wi-Fi.
+
+Servez-vous-en pour essayer les bases avant la séance 1, ou si R n'est pas encore installé sur votre ordinateur. Pour le cours lui-même, travaillez dans RStudio : c'est là que vivent votre projet, vos données et vos scripts.
+
+## 1. R comme calculatrice
+
+Modifiez les nombres, puis cliquez sur **Run Code**.
+
+```{webr}
+2 + 2
+(1 + 0.03)^10      # 3 % de croissance pendant 10 ans
+sqrt(16)
+```
+
+## 2. Les objets
+
+`<-` range une valeur sous un nom. Tapez le nom pour voir la valeur.
+
+```{webr}
+gdp_pc <- 72829    # États-Unis, 2022, PIB par habitant ($ PPA)
+pop    <- 334      # millions
+gdp_pc * pop / 1e6 # PIB total, en milliards de $ PPA
+```
+
+## 3. Vecteurs et valeurs manquantes
+
+Un vecteur contient plusieurs valeurs du même type. `NA` signale une valeur manquante.
+
+```{webr}
+countries <- c("United States", "China", "India")
+life_exp  <- c(77.4, 78.2, 71.7)   # 2022, en années
+mean(life_exp)
+
+gini <- c(41.8, NA, 23.0)   # États-Unis et Inde 2023 ; Chine retirée pour l'exemple
+mean(gini)                  # NA : une valeur manque
+mean(gini, na.rm = TRUE)    # ignorer la valeur manquante, et le dire
+```
+
+## 4. Un petit data frame
+
+Un data frame est un tableau : une ligne par pays, une colonne par variable.
+
+```{webr}
+df <- data.frame(
+  country    = c("United States", "China", "India"),
+  gdp_pc_ppp = c(72829, 21499, 8347),
+  life_exp   = c(77.4, 78.2, 71.7)
+)
+df
+df[df$life_exp > 75, ]
+df$gdp_pc_ppp / df$gdp_pc_ppp[3]   # combien de fois le niveau de l'Inde
+```
+
+## 5. À vous
+
+Ajoutez une colonne `richer_than_china` qui vaut `TRUE` quand le PIB par habitant dépasse celui de la Chine, puis affichez `df`.
+
+```{webr}
+#| exercise: ex_1
+df <- data.frame(
+  country    = c("United States", "China", "India"),
+  gdp_pc_ppp = c(72829, 21499, 8347)
+)
+df$richer_than_china <- ______
+df
+```
+
+::: { .hint exercise="ex_1"}
+Comparez la colonne à la valeur de la Chine, le deuxième élément : `df$gdp_pc_ppp > df$gdp_pc_ppp[2]`.
+:::
+
+::: { .solution exercise="ex_1"}
+```{webr}
+#| exercise: ex_1
+#| solution: true
+df$richer_than_china <- df$gdp_pc_ppp > df$gdp_pc_ppp[2]
+df
+```
+:::
+
+<small>Source des valeurs : Banque mondiale, World Development Indicators (WDI), 2022, comme dans les données du cours. Gini : dernière année disponible (2023) ; la valeur de la Chine (36,0 en 2022) est retirée exprès pour montrer `NA`.</small>

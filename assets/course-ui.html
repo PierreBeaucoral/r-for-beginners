@@ -1,0 +1,102 @@
+<script>
+// Course UI helpers, shared by the EN and FR pages (included via _quarto.yml).
+document.addEventListener("DOMContentLoaded", () => {
+  // 1. Compact session navigation, built from the navbar "Sessions" menu so it
+  //    follows the page language. Shown only on session pages.
+  const items = [...document.querySelectorAll("#navbarCollapse .dropdown-menu a.dropdown-item")]
+    .filter(a => !a.closest("#languages-links") && /seance-\d\.html$/.test(new URL(a.href).pathname));
+  const here = location.pathname.replace(/\/$/, "/index.html");
+  const current = items.find(a => new URL(a.href).pathname === here);
+  const header = document.querySelector("#title-block-header");
+  if (current && header) {
+    const toggle = current.closest(".dropdown")?.querySelector(".dropdown-toggle");
+    const nav = document.createElement("nav");
+    nav.className = "session-nav";
+    nav.setAttribute("aria-label", toggle ? toggle.textContent.trim() : "Sessions");
+    const label = document.createElement("span");
+    label.className = "session-nav-label";
+    label.textContent = nav.getAttribute("aria-label");
+    nav.append(label);
+    for (const a of items) {
+      const text = a.textContent.trim();             // "3: Data manipulation ..."
+      const link = document.createElement("a");
+      link.href = a.href;
+      link.textContent = text.split(/\s*:/)[0];       // "3"
+      link.title = text;
+      link.setAttribute("aria-label", text);
+      if (a === current) link.setAttribute("aria-current", "page");
+      nav.append(link);
+    }
+    header.before(nav);
+  }
+
+  // 2. Collapsible callouts (solutions): Quarto's toggle header is a plain div,
+  //    so make it a real keyboard-operable button.
+  document.querySelectorAll('.callout-header[data-bs-toggle="collapse"]').forEach(h => {
+    h.setAttribute("role", "button");
+    h.removeAttribute("aria-label");                  // let the visible title name it
+    h.querySelector(".screen-reader-only")?.remove();   // drop the "Note" prefix
+    h.setAttribute("tabindex", "0");
+    h.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); h.click(); }
+    });
+  });
+
+  // 3. Solution toggles say what they will do: "Show" when closed, "Hide" when open.
+  const hideLabel = document.documentElement.lang.startsWith("fr") ? "Masquer la solution" : "Hide solution";
+  const swap = (e, open) => {
+    const h = document.querySelector(`.callout-header[aria-controls="${e.target.id}"]`);
+    const title = h?.querySelector(".callout-title-container");
+    if (!title) return;
+    title.dataset.showLabel ??= title.textContent.trim();
+    title.textContent = open ? title.dataset.showLabel.replace(/^(Show solution|Afficher la solution)/, hideLabel)
+                             : title.dataset.showLabel;
+  };
+  document.addEventListener("show.bs.collapse", e => swap(e, true));
+  document.addEventListener("hide.bs.collapse", e => swap(e, false));
+
+  const fr = document.documentElement.lang.startsWith("fr");
+
+  // 4. Skip link: keyboard users jump past the navbar and the contents list.
+  const skip = document.createElement("a");
+  skip.className = "skip-link";
+  skip.href = "#quarto-document-content";
+  skip.textContent = fr ? "Aller au contenu" : "Skip to content";
+  document.body.prepend(skip);
+
+  // 5. Phones: the right-hand contents list is hidden, so repeat it under the title.
+  const toc = document.querySelector("#TOC > ul");
+  if (toc && header) {
+    const box = document.createElement("details");
+    box.className = "toc-mobile";
+    const summary = document.createElement("summary");
+    summary.textContent = document.querySelector("#toc-title")?.textContent.trim() || (fr ? "Sur cette page" : "On this page");
+    box.append(summary, toc.cloneNode(true));
+    box.querySelectorAll("[id]").forEach(el => el.removeAttribute("id"));
+    box.addEventListener("click", e => { if (e.target.closest("a")) box.open = false; });
+    header.after(box);
+  }
+
+  // 6. Language switch: babelquarto renders a one-item dropdown; make it one click.
+  const other = document.querySelector("#languages-links a.dropdown-item");
+  const button = document.querySelector("#languages-button");
+  if (other && button) {
+    const link = document.createElement("a");
+    link.className = "lang-switch";
+    link.href = other.href;
+    link.hreflang = other.id.replace("language-link-", "");
+    link.lang = link.hreflang;
+    link.textContent = other.textContent.trim();
+    link.setAttribute("aria-label", fr ? "Read this page in English" : "Lire cette page en français");
+    button.parentElement.replaceChildren(link);
+  }
+
+  // 7. Print: open folded code, and label solutions plainly.
+  window.addEventListener("beforeprint", () => {
+    document.querySelectorAll("details").forEach(d => { d.dataset.wasOpen = d.open; d.open = true; });
+  });
+  window.addEventListener("afterprint", () => {
+    document.querySelectorAll("details").forEach(d => { d.open = d.dataset.wasOpen === "true"; });
+  });
+});
+</script>

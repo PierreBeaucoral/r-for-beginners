@@ -40,10 +40,11 @@ jobs:
       - name: Installer Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
-      # Grâce à _freeze/ (versionné), seuls les documents modifiés
-      # ré-exécutent du R ; les autres réutilisent les résultats figés.
-      - name: Rendre le site
-        run: quarto render
+      # babelquarto rend la version anglaise (docs/) puis la française (docs/fr/)
+      # et ajoute le bouton EN/FR. _freeze/ (versionné) sert à la version
+      # anglaise ; les pages *.fr.qmd ré-exécutent leur R à chaque rendu.
+      - name: Rendre le site (EN + FR)
+        run: Rscript -e 'babelquarto::render_website(preview = FALSE)'
 
       - name: Préparer l'artefact Pages
         uses: actions/upload-pages-artifact@v3

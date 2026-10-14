@@ -18,3 +18,10 @@
 /slides/*.html
 /Rplots.pdf
 output/
+
+# Generated at render time by tools/make_scripts.R
+/scripts/
+
+# Review screenshots (large, regenerable)
+quality_reports/referee_reports/screens/
+.playwright-mcp/

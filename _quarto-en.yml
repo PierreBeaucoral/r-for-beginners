@@ -1,0 +1,28 @@
+# Profil chargé par babelquarto pour la version anglaise (langue principale).
+# Le menu est ici et dans _quarto-fr.yml, pas dans _quarto.yml : Quarto
+# concatène les listes des profils au lieu de les remplacer.
+website:
+  navbar:
+    left:
+      - text: "Home"
+        href: index.qmd
+      - text: "Sessions"
+        menu:
+          - text: "1: Getting started with R and RStudio"
+            href: seances/seance-1.qmd
+          - text: "2: Importing and exporting data"
+            href: seances/seance-2.qmd
+          - text: "3: Data manipulation (dplyr, tidyr, joins)"
+            href: seances/seance-3.qmd
+          - text: "4: Descriptive statistics and regression"
+            href: seances/seance-4.qmd
+          - text: "5: Visualising with ggplot2 (and maps)"
+            href: seances/seance-5.qmd
+          - text: "6: Advanced visualisation and Quarto reports"
+            href: seances/seance-6.qmd
+      - text: "Dataviz workshop (FR)"
+        href: slides/atelier-dataviz.qmd
+      - text: "Resources"
+        href: resources.qmd
+      - text: "Try R online"
+        href: playground.qmd

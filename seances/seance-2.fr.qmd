@@ -1,0 +1,577 @@
+---
+title: "Séance 2 : Importer et exporter des données"
+subtitle: "CSV, Excel, fichiers mal formatés, et données directement depuis la Banque mondiale"
+---
+
+::: {.objectifs}
+Objectifs de la séance
+
+- Localiser des fichiers avec `here::here()` plutôt qu'avec `setwd()`.
+- Importer des fichiers CSV et Excel, et inspecter ce que vous avez importé.
+- Gérer un fichier mal formaté : regarder d'abord le texte brut, puis vérifier `nrow()` et `problems()`.
+- Exporter des résultats vers `output/` (CSV, Excel, `.rds`) sans toucher aux données brutes.
+- Récupérer des données de la Banque mondiale avec le package `WDI`, et comprendre pourquoi on les met en cache.
+:::
+
+::: {.prepare}
+Préparer votre session R
+
+**Packages utilisés aujourd'hui :** `tidyverse`, `here`, `janitor`, `readxl`, `writexl`, `lubridate`, `scales`, `WDI`. S'il en manque un, lancez `install.packages("name")` dans la console.
+
+```{r}
+#| label: setup
+Sys.setenv(LANGUAGE = "en")   # messages de R en anglais
+library(tidyverse)   # readr, dplyr, ggplot2…
+library(here)        # chemins relatifs au projet
+library(janitor)     # clean_names()
+library(readxl)      # lire des fichiers Excel
+library(writexl)     # écrire des fichiers Excel
+library(lubridate)   # dates (aperçu)
+library(scales)      # label_dollar()
+library(WDI)         # API de la Banque mondiale (utilisé dans un bloc non évalué)
+
+source(here("R", "theme_cours.R"))
+```
+
+**Script de la séance :** [télécharger seance-2.R](../scripts/seance-2.R){download="seance-2.R"}, tout le code de cette page dans un seul fichier.
+:::
+
+## 1. Où sont mes fichiers ?
+
+::: {.section-goal}
+[≈ 10 min]{.duration} Après cette section, vous saurez dire où se trouve un fichier et indiquer son chemin à R sans `setwd()`.
+:::
+
+Toute analyse de ce cours suit le même enchaînement : importer les données, les vérifier, les nettoyer, sauvegarder le résultat.
+
+```{mermaid}
+%%| echo: false
+flowchart LR
+    A[Fichier brut dans data/raw] --> B[Importer]
+    B --> C[Vérifier]
+    C --> D[Nettoyer]
+    D --> E[Sauvegarder dans output]
+```
+
+À la dernière séance, vous avez travaillé dans un projet RStudio. Le dossier du projet est le **répertoire de travail**. Voici notre organisation :
+
+```
+r-course/
+├── r-course.Rproj
+├── data/          # les données fournies (de data.zip)
+│   └── raw/       # fichiers originaux, LECTURE SEULE
+├── R/
+│   └── theme_cours.R   # thème graphique commun (de data.zip)
+└── output/        # tout ce que VOUS produisez (tableaux, exports)
+```
+
+```{mermaid}
+%%| echo: false
+flowchart LR
+    P[r-course/] --> D[data/]
+    P --> R[R/]
+    P --> O[output/]
+    D --> RAW[data/raw/ lecture seule]
+```
+
+Règle : **n'écrivez jamais dans `data/`**. Si vous écrasez un fichier brut, l'original est perdu. Tout ce que vous créez va dans `output/`.
+
+N'utilisez pas `setwd("C:/Users/me/...")`. Cela casse sur tous les autres ordinateurs. Utilisez `here::here()` : cette fonction construit un chemin à partir de la racine du projet, quelle que soit la machine.
+
+```{r}
+# here("data", "raw", "SCIM.csv") renvoie le chemin complet sur votre machine,
+# p. ex. "/home/you/r-course/data/raw/SCIM.csv" (non affiché ici)
+file.exists(here("data", "raw", "SCIM.csv"))
+```
+
+Obtenir `TRUE` avec `file.exists()` est le premier test à faire quand un import échoue.
+
+::: {.callout-note}
+## En clair
+
+Un chemin est une adresse. `setwd("C:/Users/me/...")` revient à donner votre adresse personnelle à quelqu'un qui habite ailleurs. `here()` donne l'itinéraire *depuis la porte d'entrée du projet*, si bien que les mêmes indications fonctionnent sur tous les ordinateurs.
+:::
+
+## 2. Fichiers CSV avec `readr`
+
+::: {.section-goal}
+[≈ 30 min]{.duration} Après cette section, vous saurez lire un fichier CSV et dire d'un coup d'œil si R l'a bien compris.
+:::
+
+Un fichier CSV (*comma-separated values*, valeurs séparées par des virgules) est un fichier texte brut : une ligne par observation, les valeurs étant séparées par un délimiteur. `read_csv()` devine le type de chaque colonne à partir des 1 000 premières lignes.
+
+Nous utilisons `SCIM.csv`, des données de l'OCDE sur le commerce international (exportations, importations, solde commercial) par pays et par période.
+
+```{r}
+scim <- read_csv(here("data", "raw", "SCIM.csv"))
+```
+
+Quand vous lancez ceci dans la console, `readr` affiche le nombre de lignes et de colonnes ainsi que le type deviné pour chacune : lisez-le, c'est le contrôle le moins coûteux dont vous disposez (cette page masque ces messages). Regardons maintenant les données.
+
+```{r}
+head(scim)
+glimpse(scim)
+```
+
+::: {.callout-important}
+## Idée clé
+
+Un import qui s'exécute sans erreur n'est **pas** un import qui a fonctionné. Regardez toujours le résultat (`glimpse()`, `nrow()`) avant de l'utiliser.
+:::
+
+`glimpse()` affiche chaque colonne sur une ligne avec son type : utilisez-le plus que `head()`. `summary()` donne des résumés numériques :
+
+```{r}
+summary(scim$Value)
+```
+
+**Ce résumé n'a aucun sens**, et R ne vous prévient pas : `Value` mélange des dollars américains, des monnaies nationales et des variations en pourcentage, tantôt mensuelles, tantôt trimestrielles. Le maximum, 1 167 777, est le commerce trimestriel de l'Indonésie en milliards de roupies. Nous le vérifions plus bas avec `count()`.
+
+Qu'observe-t-on ?
+
+- Les noms de colonnes mélangent majuscules et minuscules et contiennent des espaces (`"Unit Code"`, `"Reference Period"`). C'est pénible à saisir, car il faut des backticks.
+- Les colonnes vont par **paires français/anglais** (`SUBJECT`/`Sujet`, `LOCATION`/`Pays`, `MEASURE`/`Mesure`, `TIME`/`Temps`) : la même information en double.
+- `TIME` est une colonne de texte qui mélange des mois (`"2022-04"`) et des trimestres (`"2022-Q2"`).
+
+`janitor::clean_names()` transforme les noms en `snake_case` cohérent :
+
+```{r}
+scim <- clean_names(scim)
+names(scim)
+```
+
+::: {.callout-note}
+## Aperçu : les verbes de dplyr
+
+`select()`, `filter()`, `count()`, `distinct()`, `mutate()`, `slice_max()` et `summarise()` sont enseignés à la séance 3 (ggplot à la séance 5). Pour l'instant, recopiez simplement le schéma.
+:::
+
+Supprimons les doublons en français et les colonnes inutiles, mais gardons `unit_code` et `frequency`, puis comptons ce qui reste :
+
+```{r}
+scim <- scim |>
+  select(subject, location, measure, frequency, time, unit_code, value)
+
+scim |> count(subject)
+scim |> count(measure, unit_code, frequency)
+```
+
+Les trois sujets sont les exportations (`XTEXVA01`), les importations (`XTIMVA01`) et le commerce net (`XTNTVA01`). Le second comptage montre pourquoi nous avons gardé `unit_code` et `frequency` : `CXML` et `CXMLSA` sont en dollars américains, `NCML` et `NCMLSA` en monnaie nationale, `GPSA` et `GYSA` sont des variations en pourcentage (par rapport à la période précédente et sur un an), et chacune existe en mensuel (`M`) et en trimestriel (`Q`). Avant tout calcul sur `value`, gardez une seule mesure et une seule fréquence.
+
+**Aperçu : les dates.** `time` est du texte, donc R ne peut ni le trier ni le représenter comme une date. `lubridate::yq()` convertit `"2022-Q2"` en premier jour de ce trimestre (le chapitre [Dates and times](https://r4ds.hadley.nz/datetimes.html) de *R for Data Science*, en anglais, va plus loin) :
+
+```{r}
+scim |>
+  filter(str_detect(time, "Q")) |>
+  distinct(time) |>
+  mutate(date = yq(time))
+```
+
+::: {.callout-warning}
+## Erreur fréquente
+
+Ouvrir un CSV dans Excel puis le réenregistrer peut **transformer des codes en dates** (le gène `SEPT2` devient « 2-Sep », le code `1-3` devient une date) ou changer le **séparateur décimal** : dans un Excel en français, `3,5` signifie 3,5, mais `read_csv()` attend un point. Vérifiez avec `glimpse()` : une colonne numérique lue comme `<chr>` est le symptôme habituel. Corrigez à la source ou avec `read_csv2()` (séparateur point-virgule, virgule décimale). Des caractères accentués transformés en `Ã©` signalent un mauvais **encodage** : ajoutez `locale = locale(encoding = "latin1")` (ou `"UTF-8"`).
+:::
+
+## 3. Fichiers Excel avec `readxl`
+
+::: {.section-goal}
+[≈ 20 min]{.duration} Après cette section, vous saurez lister les feuilles d'un classeur et lire une feuille, ou une partie de feuille.
+:::
+
+`read_excel()` lit les fichiers `.xls` et `.xlsx`. Un fichier Excel peut contenir plusieurs **feuilles**, il faut donc d'abord les lister :
+
+```{r}
+path_xls <- here("data", "raw", "SCIM.xls")
+excel_sheets(path_xls)
+```
+
+Deux feuilles. Par défaut, `read_excel()` lit la première. Choisissez une feuille par son nom ou sa position avec `sheet =`. Les fichiers créés avec un Excel en français ont souvent des noms de feuilles en français (`Feuil1`, `Feuil2`) et des noms de colonnes avec accents ou tirets (`Août-2022`) ; R exige des backticks autour de tels noms.
+
+```{r}
+scim_xls <- read_excel(path_xls, sheet = "Sheet1")
+dim(scim_xls)
+scim_xls[1:5, 1:6]
+```
+
+Ce fichier n'est pas identique au CSV : il est en **format large** (une colonne par mois, une ligne par pays), et les noms des mois sont en français. Et la deuxième feuille ?
+
+```{r}
+dim(read_excel(path_xls, sheet = "Feuil2"))
+```
+
+Elle est vide (0 ligne, 0 colonne) ; `Feuil2` est le nom par défaut français de « Sheet 2 ». Leçon : ne présumez jamais du contenu d'une feuille.
+
+Pour ne lire qu'une partie d'une feuille, utilisez `range =` (notation Excel) :
+
+```{r}
+read_excel(path_xls, sheet = "Sheet1", range = "A1:D6")
+```
+
+## 4. Un import difficile : le fichier WID
+
+::: {.section-goal}
+[≈ 35 min]{.duration} Après cette section, vous saurez importer un fichier mal formé et prouver, chiffres à l'appui, que l'import est correct.
+:::
+
+Les vrais fichiers sont rarement propres. `WID_Data.csv` provient de la [World Inequality Database](https://wid.world) (en anglais) : coefficients de Gini du revenu national avant impôt pour la Chine, l'Inde et les États-Unis. Avant d'exécuter le moindre code, **regardez le texte brut** :
+
+```{r}
+readLines(here("data", "raw", "WID_Data.csv"), n = 9)
+```
+
+Trois problèmes :
+
+1. La première ligne est un **commentaire** (« Downloaded from wid.world... »), pas un en-tête.
+2. Le séparateur est `;`, pas `,`.
+3. Le libellé de la variable est **réparti sur plusieurs lignes** entre guillemets, et il n'y a pas de ligne d'en-tête.
+
+Un `read_csv()` naïf n'échoue pas bruyamment. Il renvoie quelque chose :
+
+```{r}
+#| warning: false
+wid_naive <- read_csv(here("data", "raw", "WID_Data.csv"))   # tentative naïve
+dim(wid_naive)
+head(wid_naive, 3)
+```
+
+Une seule colonne, 190 « lignes » qui sont des fragments de texte, et la ligne de commentaire est devenue le nom de colonne. Nous savons que le fichier contient 3 pays × 21 années = 63 observations, donc 190 est faux. `problems()` liste les cellules que `readr` n'a pas pu analyser ; ici il n'en signale qu'une, ce qui ne suffit pas : **c'est votre propre contrôle avec `nrow()` qui détecte l'erreur**.
+
+```{r}
+problems(wid_naive) |> select(-file)   # masquer le long chemin
+```
+
+::: {.callout-note}
+## En clair
+
+`read_csv()` est un touriste muni d'un guide de conversation pour une seule langue. Face à un fichier dont la « grammaire » est différente (séparateur `;`, un commentaire en ligne 1), il ne s'arrête pas : il invente une lecture. Vous êtes l'interprète : regardez le texte brut, puis énoncez à `readr` les règles.
+:::
+
+Lisons-le maintenant correctement : sautons la ligne de commentaire, indiquons que le délimiteur est `;`, et fournissons nous-mêmes les noms de colonnes.
+
+```{r}
+wid <- read_delim(
+  here("data", "raw", "WID_Data.csv"),
+  delim = ";",
+  skip = 1,                                   # la ligne de commentaire
+  col_names = c("country_wid", "indicator", "percentile", "year", "gini"),
+  show_col_types = FALSE
+)
+nrow(wid)
+glimpse(wid)
+```
+
+63 lignes, comme prévu. Côte à côte, le résultat naïf et le résultat correct :
+
+```{r}
+#| layout-ncol: 2
+#| echo: false
+print(wid_naive |> rename(comment_line_as_name = 1) |> head(4), width = 40)
+print(wid |> select(country_wid, year, gini) |> head(4))
+```
+
+Le libellé sur plusieurs lignes se retrouve dans `indicator` : un texte entre guillemets peut contenir des retours à la ligne, et `readr` sait les gérer. Comparez avec la version nettoyée `data/wid_gini.csv` préparée pour ce cours :
+
+```{r}
+wid_gini <- read_csv(here("data", "wid_gini.csv"), show_col_types = FALSE)
+glimpse(wid_gini)
+
+# Mêmes chiffres ? (le fichier nettoyé a en plus un code iso3c)
+all.equal(wid$gini, wid_gini$gini)
+```
+
+Un graphique est aussi un contrôle : si l'import est correct, les séries doivent ressembler à des données d'inégalités, et non à du bruit. Voici l'indice de Gini du WID (0 = égalité parfaite, 1 = une seule personne reçoit tout le revenu) une fois correctement importé.
+
+```{r}
+#| fig-alt: "Courbes de l'indice de Gini du WID, 2000-2020, pour la Chine, l'Inde et les États-Unis. Les trois courbes montent. L'Inde dépasse les États-Unis en 2007 et reste ensuite la plus haute ; sa courbe est presque droite jusqu'en 2011 et plate à partir de 2014. Les États-Unis font un saut en 2020."
+#| code-fold: true
+#| code-summary: "Afficher le code du graphique (enseigné à la séance 5)"
+#| fig-width: 8
+#| fig-height: 5
+ggplot(wid_gini, aes(x = year, y = gini, colour = iso3c)) +
+  geom_line(linewidth = 1) +
+  scale_colour_manual(values = c(CHN = pal_cours[["accent"]],
+                                 IND = "#E69F00",
+                                 USA = pal_cours[["principal"]])) +
+  labs(
+    title = "Les inégalités de revenu ont augmenté en Chine, en Inde et aux États-Unis, 2000-2020",
+    x = NULL, y = "Indice de Gini (0-1)", colour = NULL,
+    caption = "Source : World Inequality Database (WID), revenu national avant impôt."
+  )
+```
+
+Lisez ce graphique comme un contrôle, pas seulement comme un résultat. La courbe de l'Inde est presque droite de 2000 à 2011 (environ +0,01 par an), puis parfaitement plate de 2014 à 2020 (0,634 chaque année) : ce sont des interpolations du WID, pas des mesures annuelles, car l'Inde dispose de peu d'enquêtes. Le saut des États-Unis en 2020 (de 0,58 à 0,62) mérite aussi un examen. Consultez les métadonnées du WID avant de lire des variations d'une année sur l'autre.
+
+::: {.callout-important}
+## La liste de contrôle pour tout nouveau fichier
+
+1. Ouvrez le texte brut (`readLines(path, n = 10)`) avant de le lire.
+2. Après l'import : `nrow()`, `ncol()`, `glimpse()` : correspondent-ils à ce que vous attendez ?
+3. `problems(x)` liste les cellules que `readr` n'a pas pu analyser.
+4. Vérifiez les valeurs manquantes et les types (`summary()`).
+:::
+
+Le fichier nettoyé comporte un code `iso3c` (code pays). Remarquez que le WID écrit `"USA"` là où la Banque mondiale écrit `"United States"` : les noms de pays diffèrent selon les sources. Nous verrons à la séance 3 pourquoi il faut faire les jointures sur les codes, jamais sur les noms.
+
+## 5. Écrire des fichiers
+
+::: {.section-goal}
+[≈ 25 min]{.duration} Après cette section, vous saurez sauvegarder un résultat dans le format qui convient à son destinataire.
+:::
+
+Créez le dossier `output/` (rien ne se passe s'il existe déjà), puis écrivez-y.
+
+```{r}
+dir.create(here("output"), showWarnings = FALSE)
+```
+
+**Fichiers texte.** `write_csv()` écrit un fichier séparé par des virgules, `write_delim()` n'importe quel délimiteur :
+
+```{r}
+write_csv(wid_gini, here("output", "wid_gini_copy.csv"))
+write_delim(wid_gini, here("output", "wid_gini_tab.txt"), delim = "\t")
+```
+
+**Excel.** `writexl::write_xlsx()` écrit une feuille à partir d'un data frame, ou **plusieurs feuilles à partir d'une liste nommée** ; les noms deviennent les noms des feuilles :
+
+```{r}
+write_xlsx(wid_gini, here("output", "wid_gini.xlsx"))
+
+write_xlsx(
+  list(wid_clean = wid_gini, scim_sample = head(scim, 100)),
+  here("output", "two_sheets.xlsx")
+)
+excel_sheets(here("output", "two_sheets.xlsx"))
+```
+
+**Le format propre à R : `.rds`.** Un CSV perd de l'information (types de colonnes, niveaux des facteurs). `saveRDS()` stocke un objet R exactement tel qu'il est ; `readRDS()` le restaure.
+
+```{r}
+saveRDS(wid_gini, here("output", "wid_gini.rds"))
+wid_back <- readRDS(here("output", "wid_gini.rds"))
+all.equal(wid_gini, wid_back)   # TRUE : mêmes valeurs, types et noms
+```
+
+::: {.callout-important}
+## Idée clé
+
+Vos données brutes ne changent jamais ; vos résultats peuvent toujours être régénérés en relançant le script. Si vous pouvez supprimer `output/` et le reconstruire, votre travail est **reproductible**.
+:::
+
+Quel format utiliser, et quand ?
+
+| Format | À utiliser quand |
+|---|---|
+| `.csv` | vous partagez avec d'autres personnes ou d'autres logiciels ; le fichier doit être lisible partout |
+| `.xlsx` | le destinataire travaille dans Excel (plusieurs tableaux dans un seul fichier) |
+| `.rds` | vous voulez recharger l'objet dans R exactement tel qu'il était (résultats intermédiaires) |
+
+## 6. Données issues de packages : la Banque mondiale
+
+::: {.section-goal}
+[≈ 25 min]{.duration} Après cette section, vous saurez récupérer des données de la Banque mondiale avec `WDI()` et expliquer pourquoi nous lisons une copie en cache.
+:::
+
+De nombreuses institutions fournissent un package R pour récupérer directement leurs données. Le package `WDI` interroge les **World Development Indicators** (indicateurs du développement dans le monde) de la Banque mondiale. Chaque indicateur a un code, p. ex. `NY.GDP.MKTP.CD` = PIB en dollars américains courants. Trouvez un code avec `WDIsearch()` :
+
+```{r}
+#| eval: false
+WDIsearch("gdp per capita")      # nécessite Internet
+```
+
+Récupérer le PIB des États-Unis, de la Chine et de l'Inde se présente ainsi :
+
+```{r}
+#| eval: false
+gdp_api <- WDI(
+  country   = c("US", "CN", "IN"),     # codes ISO-2
+  indicator = c(gdp = "NY.GDP.MKTP.CD"),  # nouveau_nom = code de l'indicateur
+  start = 2000, end = 2020
+)
+```
+
+Ce bloc **n'est pas évalué** lors de la construction de cette page : il nécessite une connexion Internet, et le serveur de la Banque mondiale peut être lent ou modifier ses données. À la place, le cours utilise une **copie en cache** enregistrée une fois pour toutes par `R/00_prepare_data.R`.
+
+::: {.callout-note}
+## Pourquoi mettre des données en cache ?
+
+- **Reproductibilité** : la Banque mondiale révise ses séries. L'appel d'aujourd'hui peut donner des chiffres différents de ceux de l'an dernier.
+- **Robustesse** : pas d'Internet, pas de téléchargement, pas d'échec. Le Wi-Fi de la salle n'est pas une dépendance.
+- **Rapidité** : appeler une API à chaque exécution est lent.
+
+Bonne pratique : récupérer une fois, sauvegarder le fichier dans votre projet, lire ensuite ce fichier, et noter la date de téléchargement.
+:::
+
+```{r}
+wdi3 <- read_csv(here("data", "wdi_3countries.csv"), show_col_types = FALSE)
+glimpse(wdi3)
+```
+
+Nous disposons aussi d'un **panel** plus large : tous les pays, 2000–2023, six indicateurs. Ce sera notre jeu de données principal à partir de la séance 3.
+
+```{r}
+wdi_panel <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
+glimpse(wdi_panel)
+```
+
+Avant d'utiliser un panel, demandez-vous : **quelle part en est réellement observée ?** Le graphique ci-dessous montre, pour chaque indicateur et chaque année, la part des pays ayant une valeur non manquante. (Les lignes proches de 100 % se superposent : `population` et `life_exp` sont entièrement observées.)
+
+```{r}
+#| fig-alt: "Courbes de la part des pays avec une valeur non manquante, par indicateur et par année, 2000-2023. La plupart des indicateurs sont proches de 100 % ; l'indice de Gini est nettement plus bas."
+#| code-fold: true
+#| code-summary: "Afficher le code du graphique (enseigné à la séance 5)"
+#| fig-width: 8
+#| fig-height: 5
+wdi_panel |>
+  summarise(across(c(gdp, gdp_pc_ppp, population, life_exp, gini, elec_access),
+                   \(x) mean(!is.na(x))),
+            .by = year) |>
+  pivot_longer(-year, names_to = "indicator", values_to = "share_observed") |>
+  ggplot(aes(x = year, y = share_observed, colour = indicator)) +
+  geom_line(linewidth = 1) +
+  scale_y_continuous(labels = label_percent(), limits = c(0, 1)) +
+  labs(
+    title = "La plupart des indicateurs couvrent presque tous les pays ; pas l'indice de Gini",
+    x = NULL, y = "Part des pays avec une valeur", colour = NULL,
+    caption = "Source : Banque mondiale, World Development Indicators (WDI), 2000-2023."
+  )
+```
+
+::: {.callout-warning}
+## Erreur fréquente
+
+Faire la moyenne d'un indicateur ou le comparer sans vérifier sa couverture. Si l'indice de Gini n'est observé que pour moins de la moitié des pays une année donnée, toute « moyenne mondiale » décrit un **groupe sélectionné** (les pays qui réalisent des enquêtes auprès des ménages), pas le monde.
+:::
+
+::: {.callout-note}
+## Pourquoi c'est important en économie du développement
+
+Les données manquantes dans les WDI ne sont pas aléatoires : les pays à faible revenu et fragiles sont ceux qui comptent le moins d'observations. Vérifier d'abord la couverture vous dit de qui parlent réellement vos résultats.
+:::
+
+## 7. Un premier aperçu des données
+
+::: {.section-goal}
+[≈ 5 min]{.duration} Après cette section, vous aurez vu ce qu'un import propre permet de faire ensuite.
+:::
+
+Juste pour voir où nous allons (la séance 5 explique chaque ligne ; pour l'instant, recopiez le schéma) : le PIB des trois pays.
+
+```{r}
+#| fig-alt: "Courbes du PIB en dollars courants (milliers de milliards), 2000-2020, pour la Chine, l'Inde et les États-Unis. Le PIB de la Chine se rapproche rapidement de celui des États-Unis."
+#| fig-width: 8
+#| fig-height: 5
+ggplot(wdi3, aes(x = year, y = gdp, colour = country)) +
+  geom_line(linewidth = 1) +
+  scale_y_continuous(labels = label_dollar(scale = 1e-12, suffix = "T")) +
+  scale_colour_manual(values = c(China = pal_cours[["accent"]],
+                                 India = "#E69F00",
+                                 `United States` = pal_cours[["principal"]])) +
+  labs(
+    title = "Le PIB de la Chine est passé de 12 % à 70 % de celui des États-Unis en 20 ans",
+    x = NULL, y = "PIB (en $ courants, milliers de milliards)", colour = NULL,
+    caption = "Source : Banque mondiale, World Development Indicators (WDI), 2000-2020."
+  )
+```
+
+## 8. Exercices (≈ 30 min)
+
+::: {.callout-tip}
+## Exercice 2.1
+
+Importez `data/raw/SCIM.csv`. Nettoyez les noms de colonnes, ne gardez que `location`, `time`, `subject` et `value`, et affichez les 6 premières lignes. Combien y a-t-il de pays distincts (`location`) ?
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+ex1 <- read_csv(here("data", "raw", "SCIM.csv"), show_col_types = FALSE) |>
+  clean_names() |>
+  select(location, time, subject, value)
+
+head(ex1)
+n_distinct(ex1$location)
+```
+:::
+
+::: {.callout-tip}
+## Exercice 2.2
+
+À partir de `data/raw/SCIM.xls`, lisez la feuille `Sheet1`, mais seulement les cellules `A1:C11` (le pays et les deux premiers mois). Quel pays a la valeur la plus élevée dans la première colonne de mois ?
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+ex2 <- read_excel(here("data", "raw", "SCIM.xls"), sheet = "Sheet1", range = "A1:C11")
+ex2
+ex2 |> slice_max(`Août-2022`, n = 1)   # backticks : accent et tiret dans le nom
+```
+:::
+
+::: {.callout-tip}
+## Exercice 2.3
+
+Écrivez `ex2` dans `output/` sous la forme d'un fichier CSV et d'un fichier Excel à deux feuilles (`ex2` et `ex1_head`, cette dernière contenant les 20 premières lignes de `ex1`). Vérifiez que les fichiers existent.
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+write_csv(ex2, here("output", "ex2.csv"))
+write_xlsx(list(ex2 = ex2, ex1_head = head(ex1, 20)),
+           here("output", "ex2_sheets.xlsx"))
+
+file.exists(here("output", c("ex2.csv", "ex2_sheets.xlsx")))
+```
+:::
+
+::: {.callout-tip}
+## Exercice 2.4
+
+Écrivez l'appel à `WDI()` qui récupérerait la population totale (`SP.POP.TOTL`) du Japon, de l'Allemagne et du Brésil de 2000 à 2020. (Vous ne pouvez pas l'exécuter en classe sans Internet : écrivez-le seulement.)
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+#| eval: false
+pop_api <- WDI(
+  country   = c("JP", "DE", "BR"),
+  indicator = c(population = "SP.POP.TOTL"),
+  start = 2000, end = 2020
+)
+# puis sauvegardez-le une fois, pour ne plus jamais avoir à rappeler l'API :
+dir.create(here("output"), showWarnings = FALSE)
+write_csv(pop_api, here("output", "pop_3countries.csv"))
+```
+`WDI()` prend des codes pays ISO-2 (ou `"all"`), un vecteur nommé d'indicateurs (`new_name = code`) et une période. Le résultat comporte une ligne par pays-année.
+:::
+
+::: {.callout-tip}
+## Exercice 2.5
+
+À l'aide du panel en cache `wdi_panel`, calculez la population moyenne (en millions) du Japon, de l'Allemagne et du Brésil sur 2000–2020.
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+wdi_panel |>
+  filter(country %in% c("Japan", "Germany", "Brazil"), year <= 2020) |>
+  summarise(mean_pop_millions = mean(population, na.rm = TRUE) / 1e6,
+            .by = country)
+```
+:::
+
+## À retenir
+
+- N'utilisez jamais `setwd()` ni de chemins absolus : `here::here()` fonctionne sur toutes les machines.
+- `data/raw/` est en lecture seule. Tout ce que vous produisez va dans `output/`.
+- Regardez le texte brut d'un fichier avant de le lire, et vérifiez `nrow()`, `glimpse()` et `problems()` après.
+- `read_csv()` pour les virgules, `read_delim()` pour les autres séparateurs (`skip =`, `col_names =`) ; `read_excel()` avec `sheet =` et `range =`.
+- `clean_names()` rend les noms de colonnes utilisables ; les colonnes dupliquées et les dates en texte sont courantes dans les données réelles.
+- Écrivez avec `write_csv()`, `write_xlsx()` (une liste nommée donne plusieurs feuilles) et `saveRDS()` pour conserver les objets R à l'identique.
+- Mettez en cache les données d'API (`WDI`) dans un fichier : reproductible, hors ligne, rapide.
+
+Prochaine séance : [Séance 3 : Manipuler les données (dplyr, tidyr, jointures)](seance-3.qmd).

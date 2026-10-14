@@ -1,15 +1,46 @@
+/* Hallmark · same "textbook" system as ../theme.scss (cobalt ink on cream,
+ * Newsreader / IBM Plex Sans / JetBrains Mono, self-hosted), sized for a projector. */
+
 /*-- scss:defaults --*/
-$presentation-heading-color: #1f4e79;
-$link-color: #1f4e79;
-$body-color: #1a1a1a;
-$presentation-font-size-root: 30px;
+$c-paper:   #fcfaf6;  // oklch(98.6% 0.006 85)
+$c-paper-2: #f5f2ec;  // oklch(96.2% 0.009 85)
+$c-rule:    #d9d5cf;  // oklch(87.5% 0.010 85)
+$c-muted:   #615d56;  // oklch(48%   0.012 85)
+$c-ink:     #161d2a;  // oklch(23%   0.028 262)
+$c-accent:  #1e539e;  // oklch(45%   0.135 258)
+$c-marker:  #f7e8af;  // oklch(93%   0.075 95)
+
+$backgroundColor: $c-paper;
+$mainColor: $c-ink;
+$body-bg: $c-paper;
+$body-color: $c-ink;
+$link-color: $c-accent;
+$presentation-heading-color: $c-ink;
+$presentation-heading-font: "Newsreader", "Iowan Old Style", Palatino, serif;
 $presentation-heading-font-weight: 600;
+$font-family-sans-serif: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+$font-family-monospace: "JetBrains Mono", ui-monospace, Menlo, monospace;
+$presentation-font-size-root: 30px;
 $code-block-font-size: 0.78em;
+$code-block-bg: $c-paper-2;
+$code-color: $c-ink;
 
 /*-- scss:rules --*/
+// Fonts: declared in slides/fonts.css (plain CSS keeps its relative URLs; the theme
+// compiler moves this file into site_libs, which broke them)
+
 .reveal { text-align: left; }
-.reveal h1, .reveal h2, .reveal h3 { text-align: left; letter-spacing: -0.01em; }
+.reveal h1, .reveal h2, .reveal h3 { text-align: left; letter-spacing: -0.012em; font-style: normal; }
+.reveal .quarto-title-block :is(.subtitle, .quarto-title-authors, .quarto-title-author, .date) { text-align: left; justify-content: flex-start; }
+.reveal .quarto-title-block .quarto-title-author { justify-content: flex-start; }
+// Printer's section mark, as on the site
+.reveal h2::before { content: ""; display: block; width: 2.2rem; height: 4px; background: $c-accent; margin-bottom: .45rem; }
 .reveal pre code { max-height: 520px; font-size: 0.78em; }
-.reveal code { color: #1f4e79; }
+.reveal pre { border: 1px solid $c-rule; box-shadow: none; }
+// No ligatures: show exactly what students type (<-, |>, ==)
+.reveal code, .reveal pre { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+.reveal code { color: $c-ink; }
+.reveal mark { color: inherit; background: linear-gradient(176deg, transparent 52%, $c-marker 52%, $c-marker 88%, transparent 88%); padding: 0 .1em; }
 .reveal .callout { font-size: 0.9em; }
-.reveal .slide-number { color: #1f4e79; }
+.reveal .slide-number { color: $c-muted; background: transparent; }
+.reveal .progress { color: $c-accent; }

@@ -3,15 +3,6 @@ title: "Session 1: Getting started with R and RStudio"
 subtitle: "Interface, projects, objects, functions, packages, vectors and data frames"
 ---
 
-```{r}
-#| label: setup
-library(tidyverse)
-library(here)
-library(scales)
-source(here("R", "theme_cours.R"))
-Sys.setenv(LANGUAGE = "en")  # error messages in English
-```
-
 ::: {.objectifs}
 Session objectives
 
@@ -23,9 +14,30 @@ Session objectives
 - Compute GDP per capita for three countries: the first step of our common thread.
 :::
 
+::: {.prepare}
+Prepare your R session
+
+Have you done the "Before the first session" steps on the [home page](../index.qmd)? If not, do them first: the chunk below needs the packages and the file `R/theme_cours.R` that they install.
+
+```{r}
+#| label: setup
+library(tidyverse)
+library(here)
+library(scales)
+source(here("R", "theme_cours.R"))
+Sys.setenv(LANGUAGE = "en")  # error messages in English
+```
+
+**Script of this session:** [download seance-1.R](../scripts/seance-1.R){download="seance-1.R"}, all the code of this page in one file.
+:::
+
 ## What are R and RStudio? {#sec-what}
 
-≈ 15 min. **By the end of this section you can say what R and RStudio are, and why we use them.** **R** is a programming language for statistics and data analysis. **RStudio** (now from Posit) is the editor we use to write and run R code. R is the engine, RStudio is the dashboard.
+::: {.section-goal}
+[≈ 15 min]{.duration} By the end of this section you can say what R and RStudio are, and why we use them.
+:::
+
+**R** is a programming language for statistics and data analysis. **RStudio** (now from Posit) is the editor we use to write and run R code. R is the engine, RStudio is the dashboard.
 
 ::: {.callout-note}
 ## In plain words
@@ -45,7 +57,7 @@ Install in this order: first R from [CRAN](https://cran.r-project.org/), then RS
 
 ### The four panes
 
-![The four RStudio panes. Source: [Posit documentation, RStudio panes](https://docs.posit.co/ide/user/ide/guide/ui/ui-panes.html).](../assets/rstudio-panes-labeled.jpeg)
+![The four RStudio panes. Source: [Posit documentation, RStudio panes](https://docs.posit.co/ide/user/ide/guide/ui/ui-panes.html).](../assets/rstudio-panes-labeled.jpeg){fig-alt="Screenshot of RStudio with its four panes labelled: script editor top left, console bottom left, environment and history top right, files, plots and help bottom right."}
 
 | Pane | What it is for |
 |---|---|
@@ -56,7 +68,11 @@ Install in this order: first R from [CRAN](https://cran.r-project.org/), then RS
 
 ## RStudio Projects and file paths {#sec-projects}
 
-≈ 15 min. **After this section you can set up a project folder in which every path works on any computer.** Do this from day one, it will save you hours later.
+::: {.section-goal}
+[≈ 15 min]{.duration} After this section you can set up a project folder in which every path works on any computer.
+:::
+
+Do this from day one, it will save you hours later.
 
 An **RStudio Project** is a folder with a `.Rproj` file. When you open it, RStudio sets the working directory to that folder, so every path can be written *relative to the project*.
 
@@ -104,9 +120,14 @@ Opening an `.R` file by double-clicking it, outside the project. The working dir
 
 ## Scripts, console and comments {#sec-scripts}
 
-≈ 10 min. **After this section you can write, run and comment code in a script.** You can type in the console, but what you type is lost. Code you want to keep goes in a **script**.
+::: {.section-goal}
+[≈ 10 min]{.duration} After this section you can write, run and comment code in a script.
+:::
+
+You can type in the console, but what you type is lost. Code you want to keep goes in a **script**.
 
 ```{mermaid}
+%%| echo: false
 flowchart LR
     A["Script: write and save code"] -->|"Cmd/Ctrl + Enter"| B["Console: R runs it"]
     B --> C["Environment: objects in memory"]
@@ -131,7 +152,11 @@ Good habit: a script should run from top to bottom in a fresh R session and give
 
 ## Objects, types and operators {#sec-objects}
 
-≈ 25 min. **After this section you can create objects, tell their types apart and use operators.** An **object** is a name attached to a value. We create it with the assignment arrow `<-` (shortcut `Alt + -` on Windows, `Option + -` on Mac).
+::: {.section-goal}
+[≈ 25 min]{.duration} After this section you can create objects, tell their types apart and use operators.
+:::
+
+An **object** is a name attached to a value. We create it with the assignment arrow `<-` (shortcut `Alt + -` on Windows, `Option + -` on Mac).
 
 ```{r}
 gdp_usa <- 20.9          # numeric
@@ -212,7 +237,11 @@ total_gdp
 
 ## Getting help {#sec-help}
 
-≈ 10 min. **After this section you can find and read the help page of any function.** Nobody remembers every function. Knowing how to find help is the skill.
+::: {.section-goal}
+[≈ 10 min]{.duration} After this section you can find and read the help page of any function.
+:::
+
+Nobody remembers every function. Knowing how to find help is the skill.
 
 - `?mean` or `help("mean")` opens the help page of a function (in the Help pane).
 - `??regression` searches all installed help pages for a word.
@@ -247,7 +276,11 @@ Learn the basics first: you cannot check an answer you do not understand.
 
 ## Packages: install once, load every time {#sec-packages}
 
-≈ 10 min. **After this section you can tell installing a package from loading it.** Base R is small. Most of what we use comes from **packages**. Two distinct steps:
+::: {.section-goal}
+[≈ 10 min]{.duration} After this section you can tell installing a package from loading it.
+:::
+
+Base R is small. Most of what we use comes from **packages**. Two distinct steps:
 
 1. **Install** (once per computer): download the package from CRAN. Type this **in the console**, never in a script you share.
 2. **Load** (in every session): `library()` makes its functions available. Put the `library()` calls at the **top of your script**.
@@ -281,7 +314,11 @@ Install them all now (a few minutes). Each later session starts with a "Packages
 
 ## Reading error messages {#sec-errors}
 
-≈ 15 min. **After this section you can read the three most common error messages and fix them.** You will get errors every day, including in ten years. An error is not a failure: R is telling you what it could not do. Read the message, then look at the line it points to. Here are the three you will meet most.
+::: {.section-goal}
+[≈ 15 min]{.duration} After this section you can read the three most common error messages and fix them.
+:::
+
+You will get errors every day, including in ten years. An error is not a failure: R is telling you what it could not do. Read the message, then look at the line it points to. Here are the three you will meet most.
 
 **1. `object 'xxx' not found`**: you use a name that does not exist. Typo, wrong case, or you forgot to run the line that creates it.
 
@@ -314,7 +351,9 @@ Method: (1) read the message aloud, (2) find the line, (3) check spelling, comma
 
 ## Vectors {#sec-vectors}
 
-≈ 25 min. **After this section you can build, index and compute with vectors, including missing values.**
+::: {.section-goal}
+[≈ 25 min]{.duration} After this section you can build, index and compute with vectors, including missing values.
+:::
 
 ::: {.definition}
 **Vector**: an ordered list of values of the *same type*. It is the building block of R: a column of a data set is a vector.
@@ -360,6 +399,7 @@ population / sum(population) # share of the total
 
 ```{r}
 #| label: fig-vectorised
+#| fig-alt: "Horizontal bar chart of each country's share of the total population of three countries, in percent. China and India have the two long bars, together 89%; the third country has a short bar."
 #| code-fold: true
 #| code-summary: "Show the chart code (taught in Session 5)"
 #| fig-width: 8
@@ -369,13 +409,13 @@ tibble(country = countries, population = population,
   mutate(country = fct_reorder(country, share)) |>
   ggplot(aes(x = share, y = country)) +
   geom_col(fill = pal_cours[["principal"]]) +
-  geom_text(aes(label = paste0(round(share), " %")), hjust = -0.2) +
+  geom_text(aes(label = paste0(round(share), "%")), hjust = -0.2) +
   scale_x_continuous(limits = c(0, 55)) +
   labs(
-    title = "China and India hold 89 % of the three countries' population",
+    title = "China and India hold 89% of the three countries' population",
     x = "Share of the total population of the three countries (%)",
     y = NULL,
-    caption = "Source: rounded 2020 values (World Bank, WDI), for teaching."
+    caption = "Source: rounded 2020 values from an earlier WDI release (World Bank), for teaching."
   )
 ```
 
@@ -403,6 +443,7 @@ Using `na.rm = TRUE` as a reflex. **Ask why the value is missing** and whether d
 
 ```{r}
 #| label: fig-na-share
+#| fig-alt: "Bar chart of the percentage of countries with a missing Gini in 2019, for four World Bank income groups from low to high income. Most countries in each group lack a Gini value."
 #| code-fold: true
 #| code-summary: "Show the chart code (taught in Session 5)"
 #| fig-width: 8
@@ -414,11 +455,11 @@ read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE) |>
                                             "Upper middle income", "High income"))) |>
   ggplot(aes(x = income, y = share_na)) +
   geom_col(fill = pal_cours[["accent"]]) +
-  geom_text(aes(label = paste0(round(share_na), " %")), vjust = -0.4) +
+  geom_text(aes(label = paste0(round(share_na), "%")), vjust = -0.4) +
   scale_y_continuous(limits = c(0, 100)) +
   labs(
     title = "Gini is missing for most countries in a single year",
-    x = "World Bank income group",
+    x = "World Bank income group (current classification)",
     y = "Countries with a missing Gini, 2019 (%)",
     caption = "Source: World Bank, World Development Indicators (WDI), 2019."
   )
@@ -431,7 +472,9 @@ Inequality data are scarcest where they matter most. Averaging only the countrie
 
 ## Data frames and tibbles {#sec-dataframes}
 
-≈ 25 min. **After this section you can build a small table, explore it and compute a new column.**
+::: {.section-goal}
+[≈ 25 min]{.duration} After this section you can build a small table, explore it and compute a new column.
+:::
 
 ::: {.definition}
 **Data frame**: a table in which each column is a vector, all of the same length.
@@ -439,7 +482,7 @@ Inequality data are scarcest where they matter most. Averaging only the countrie
 
 A **tibble** is the tidyverse version of a data frame, with a cleaner display. We will use tibbles throughout.
 
-Our common thread starts here: three countries, with **rounded 2020 values** (GDP in current US$ billions, population in millions; approximate figures for teaching, from the World Bank WDI).
+Our common thread starts here: three countries, with **rounded 2020 values** (GDP in current US$ billions, population in millions; approximate figures for teaching, from an earlier release of the World Bank WDI). The current release, used from Session 2 on, gives slightly different numbers: the World Bank revises its series.
 
 ```{r}
 countries3 <- tibble(
@@ -510,6 +553,7 @@ The US produces about six times more per person than China and about thirty-thre
 
 ```{r}
 #| label: fig-gdp-pc
+#| fig-alt: "Horizontal bar chart of GDP per capita in current US dollars, 2020, for three countries. The US bar is much longer than China's, about six times, and India's is the shortest."
 #| code-fold: true
 #| code-summary: "Show the chart code (taught in Session 5)"
 #| fig-width: 8
@@ -524,7 +568,7 @@ countries3 |>
     title = "The US produces six times more per person than China",
     x = "GDP per capita (current US$, 2020)",
     y = NULL,
-    caption = "Source: rounded 2020 values (World Bank, WDI), for teaching."
+    caption = "Source: rounded 2020 values from an earlier WDI release (World Bank), for teaching."
   )
 ```
 
@@ -535,9 +579,14 @@ countries3 |>
 
 ## The pipe `|>` {#sec-pipe}
 
-≈ 5 min. **After this section you can read and write a chain of steps with the pipe.** The **pipe** `|>` passes the result on its left as the first argument of the function on its right. Code reads left to right, like a recipe:
+::: {.section-goal}
+[≈ 5 min]{.duration} After this section you can read and write a chain of steps with the pipe.
+:::
+
+The **pipe** `|>` passes the result on its left as the first argument of the function on its right. Code reads left to right, like a recipe:
 
 ```{mermaid}
+%%| echo: false
 flowchart LR
     A["c(1, 4, 9)"] -->|"then sum"| B["14"] -->|"then sqrt"| C["3.74"]
 ```
@@ -557,7 +606,11 @@ Same result. From session 2 on, most of our code uses the pipe (shortcut `Ctrl/C
 
 ## Exercises {#sec-exercises}
 
-≈ 25 min. **After these exercises you can apply every tool of the session on your own.** Do 1.1 to 1.5 in class; 1.6 and 1.7 are for homework or if you finish early.
+::: {.section-goal}
+[≈ 25 min]{.duration} After these exercises you can apply every tool of the session on your own.
+:::
+
+Do 1.1 to 1.5 in class; 1.6 and 1.7 are for homework or if you finish early.
 
 ::: {.callout-tip}
 ## Exercise 1.1
@@ -565,7 +618,7 @@ Create an object `my_age` with your age, an object `my_name` with your name, and
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 my_age <- 25
 my_name <- "Pierre"
@@ -587,7 +640,7 @@ Create `x <- 12` and `y <- 5`. Compute their sum, difference, product and quotie
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 x <- 12
 y <- 5
@@ -608,7 +661,7 @@ Open the help page of `round()`. What does the argument `digits` do, and what is
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 #| eval: false
 ?round
@@ -623,11 +676,11 @@ round(pi, digits = 3)
 
 ::: {.callout-tip}
 ## Exercise 1.4
-Create a numeric vector `gdp_growth` with the values 2.3, 5.1, NA, 3.8, -0.4 (annual growth rates in %). Compute its mean with and without the missing value, then select the years with growth above 2.
+Create a numeric vector `gdp_growth` with the values `2.3, 5.1, NA, 3.8, -0.4` (annual growth rates in %). Compute its mean with and without the missing value, then select the years with growth above 2.
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 gdp_growth <- c(2.3, 5.1, NA, 3.8, -0.4)
 
@@ -645,7 +698,7 @@ Create the vector `1:10` and then, with a single operation each, (a) the vector 
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 v <- 1:10
 
@@ -661,7 +714,7 @@ Create a data frame `students` with three columns `name`, `age`, `is_student` an
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 students <- tibble(
   name       = c("Alice", "Bob", "Charlie", "Dalia"),
@@ -682,7 +735,7 @@ Using `countries3`, add a column `gdp_share` equal to each country's share of th
 :::
 
 ::: {.callout-note collapse="true"}
-## Solution
+## Show solution
 ```{r}
 countries3$gdp_share <- 100 * countries3$gdp_bn / sum(countries3$gdp_bn)
 

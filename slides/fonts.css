@@ -1,0 +1,9 @@
+/* Self-hosted fonts for the workshop deck (same files as the site, assets/fonts/). */
+@font-face { font-family: "Newsreader"; font-weight: 400 700; font-display: swap;
+  src: url("../assets/fonts/Newsreader-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400 700; font-display: swap;
+  src: url("../assets/fonts/IBMPlexSans-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: italic; font-weight: 400; font-display: swap;
+  src: url("../assets/fonts/IBMPlexSans-italic.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400 700; font-display: swap;
+  src: url("../assets/fonts/JetBrainsMono-normal.woff2") format("woff2"); }
