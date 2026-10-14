@@ -25,3 +25,8 @@ output/
 # Review screenshots (large, regenerable)
 quality_reports/referee_reports/screens/
 .playwright-mcp/
+
+# French pages must NOT be frozen: rendering a .fr.qmd directly stores image paths
+# under X.fr_files/, which break once babelquarto renames the page X.qmd.
+# babelquarto re-runs the French R code at each render instead.
+_freeze/**/*.fr/
