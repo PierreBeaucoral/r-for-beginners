@@ -42,14 +42,23 @@ jobs:
       - name: Installer les packages R
         uses: r-lib/actions/setup-r-dependencies@v2
 
+      # Aucun titre ou légende de graphique ne doit déborder de l'image (FR plus long)
+      - name: Vérifier les figures (texte coupé)
+        run: Rscript tools/check_figures.R
+
       - name: Installer Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
       # babelquarto rend la version anglaise (docs/) puis la française (docs/fr/)
-      # et ajoute le bouton EN/FR. _freeze/ (versionné) sert à la version
-      # anglaise ; les pages *.fr.qmd ré-exécutent leur R à chaque rendu.
+      # et ajoute le bouton EN/FR. Aucun code R des séances n'est exécuté ici :
+      # les deux langues viennent de _freeze/ (tools/freeze.sh, vérifié plus haut).
       - name: Rendre le site (EN + FR)
         run: Rscript -e 'babelquarto::render_website(preview = FALSE)'
+
+      # babelquarto annonce les pages françaises en « X.fr.html » (hreflang) ;
+      # elles sont servies en « X.html » sous /fr/ : on corrige ces liens.
+      - name: Corriger les liens hreflang
+        run: find docs -name '*.html' -exec sed -i -E '/hreflang/ s/\.fr\.html"/.html"/g' {} +
 
       - name: Préparer l'artefact Pages
         uses: actions/upload-pages-artifact@v5

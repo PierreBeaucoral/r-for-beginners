@@ -64,7 +64,7 @@ La République centrafricaine affiche une espérance de vie de `r nb(min(wdi_202
 
 ```{r}
 #| label: fix-caf
-# L'espérance de vie de la CAF est peu fiable dans cette version des WDI (14,7 en 2009, 18,8 en 2022) : exclure toutes les années
+# L'espérance de vie de la RCA n'est pas fiable dans cette version des WDI (14,7 en 2009, 18,8 en 2022) : on l'exclut pour toutes les années
 wdi <- wdi |> mutate(life_exp = if_else(iso3c == "CAF", NA_real_, life_exp))
 
 wdi_2022 <- filter(wdi, year == 2022)
@@ -288,7 +288,7 @@ wdi_2022 |>
     title = str_wrap("Les pays sans électricité universelle ont une espérance de vie nettement plus basse", 60),
     x = "Population ayant accès à l'électricité (%)",
     y = "Espérance de vie à la naissance (ans)",
-    colour = "Groupe de revenu (classification actuelle de la Banque mondiale)",
+    colour = str_wrap("Groupe de revenu (classification actuelle de la Banque mondiale)", 25),
     caption = str_wrap("Source : Banque mondiale, World Development Indicators (WDI), 2022.", 95)
   )
 ```

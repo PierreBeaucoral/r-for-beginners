@@ -242,9 +242,9 @@ life_by_region |>
   ggplot(aes(x = mean_life, y = fct_reorder(region, mean_life))) +
   geom_col(fill = pal_cours[["principal"]]) +
   geom_text(aes(label = paste0("n = ", n_countries)), hjust = 1.1, colour = "white") +
-  labs(title = "Sub-Saharan Africa trails North America by 17 years",
+  labs(title = str_wrap("Sub-Saharan Africa trails North America by 17 years", 60),
        x = "Mean life expectancy at birth, 2020 (years)", y = NULL,
-       caption = "Source: World Bank, World Development Indicators (WDI), 2020. Unweighted mean across countries.")
+       caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2020. Unweighted mean across countries.", 95))
 ```
 
 Now look at `median_gdp_pc` in the previous table: `NA` for five of the seven regions. One missing value is enough for `median()` to return `NA`. We need to talk about missing values.
@@ -386,10 +386,10 @@ wdi |>
   summarise(median_life = median(life_exp, na.rm = TRUE), .by = region) |>
   ggplot(aes(x = median_life, y = fct_reorder(region, median_life))) +
   geom_col(fill = pal_cours[["principal"]]) +
-  labs(title = "Life expectancy is lowest in Sub-Saharan Africa",
+  labs(title = str_wrap("Life expectancy is lowest in Sub-Saharan Africa", 60),
        x = "Median life expectancy at birth, 2020 (years)",
        y = NULL,
-       caption = "Source: World Bank, WDI. Median across countries of each region.")
+       caption = str_wrap("Source: World Bank, WDI. Median across countries of each region.", 95))
 ```
 
 Without `fct_reorder()`, the bars would be in alphabetical order and the message would be harder to read.
@@ -654,10 +654,10 @@ gdp_gini |>
   scale_colour_manual(values = c(China = pal_cours[["accent"]],
                                  India = "#E69F00",
                                  `United States` = pal_cours[["principal"]])) +
-  labs(title = "Inequality rose in all three countries; in China, mostly before 2010",
+  labs(title = str_wrap("Inequality rose in all three countries; in China, mostly before 2010", 60),
        x = "Year", y = "Gini coefficient (WID, 0-1)",
        colour = NULL,
-       caption = "Source: World Bank WDI (GDP) joined with World Inequality Database (WID, Gini) on iso3c and year.")
+       caption = str_wrap("Source: World Bank WDI (GDP) joined with World Inequality Database (WID, Gini) on iso3c and year.", 95))
 ```
 
 ::: {.callout-note}

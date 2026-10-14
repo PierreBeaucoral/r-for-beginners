@@ -74,7 +74,7 @@ wdi |>
 
 ```{r}
 #| label: caf-series
-wdi |> filter(iso3c == "CAF") |> select(year, life_exp)
+wdi |> filter(iso3c == "CAF") |> select(year, life_exp) |> print(n = Inf)
 ```
 
 The series jumps around: 49.9 in 2008 then 14.7 in 2009, 52.3 in 2018 then 31.5 in 2019, 18.8 in 2022 then 57.4 in 2023. Falls of 20 to 35 years followed by an immediate rebound are data artefacts, not findings, and they recur in several years: in this WDI release, no year of the CAF life-expectancy series can be trusted. We never edit the raw file: we **exclude the whole CAF series explicitly and say so**, and we will do the same in Sessions 5 and 6. CAF therefore leaves the 2019 sample, so N below counts one country fewer.
@@ -246,9 +246,9 @@ ggplot(cs, aes(income, life_exp)) +
   geom_boxplot(fill = "grey90", colour = pal_cours[["principal"]], outlier.shape = NA) +
   geom_jitter(width = 0.15, alpha = 0.5, colour = pal_cours[["principal"]]) +
   labs(
-    title = "Richer countries live longer; the spread is similar across groups",
+    title = str_wrap("Richer countries live longer; the spread is similar across groups", 60),
     x = NULL, y = "Life expectancy at birth (years)",
-    caption = paste0("Source: World Bank, World Development Indicators (WDI), 2019. N = ", n_cs, " countries.")
+    caption = str_wrap(paste0("Source: World Bank, World Development Indicators (WDI), 2019. N = ", n_cs, " countries."), 95)
   )
 ```
 
@@ -363,9 +363,9 @@ ggplot(sim, aes(x, y)) +
   geom_point(alpha = 0.6, colour = pal_cours[["principal"]]) +
   facet_wrap(~ panel, scales = "free") +
   labs(
-    title = "r measures linear association, not whether two variables are related",
+    title = str_wrap("r measures linear association, not whether two variables are related", 60),
     x = "X", y = "Y",
-    caption = "Source: simulated data."
+    caption = str_wrap("Source: simulated data.", 95)
   )
 ```
 
@@ -426,10 +426,10 @@ cs |>
   ggplot(aes(elec_access, life_exp)) +
   geom_point(alpha = 0.6, colour = pal_cours[["principal"]]) +
   labs(
-    title = "Life expectancy rises with electricity access, but the link bends",
+    title = str_wrap("Life expectancy rises with electricity access, but the link bends", 60),
     x = "Access to electricity (% of population)",
     y = "Life expectancy at birth (years)",
-    caption = "Source: World Bank, World Development Indicators (WDI), 2019."
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2019.", 95)
   )
 ```
 Most countries are near 100% access; the relationship is steep only at low access, so a single straight line is a rough summary. This is a feature of the data (a ceiling), not an error.
@@ -633,6 +633,8 @@ nice_names <- function(x) {
 }
 
 modelsummary(
+  output = "gt",   # a gt table: same look as the other tables, no external script
+  fmt = \(x) nb(x, 3),   # decimal mark of the page language
   list("(1) All" = m1, "(2) With Gini" = m2, "(3) + Gini" = m3, "(4) + Region" = m4),
   coef_rename = nice_names,
   stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
@@ -817,6 +819,8 @@ t.test(life_exp ~ group, data = cs_h)
 ma <- feols(life_exp ~ log_gdp_pc,              data = cs, vcov = "hetero")
 mb <- feols(life_exp ~ log_gdp_pc + elec_access, data = cs, vcov = "hetero")
 modelsummary(
+  output = "gt",   # a gt table: same look as the other tables, no external script
+  fmt = \(x) nb(x, 3),   # decimal mark of the page language
   list("(1)" = ma, "(2)" = mb),
   coef_rename = c("log_gdp_pc" = "Log GDP per capita",
                   "elec_access" = "Electricity access (%)",

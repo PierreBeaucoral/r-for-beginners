@@ -288,7 +288,7 @@ wdi_2022 |>
     title = str_wrap("Countries without universal electricity have markedly lower life expectancy", 60),
     x = "Population with access to electricity (%)",
     y = "Life expectancy at birth (years)",
-    colour = "Income group (current World Bank classification)",
+    colour = str_wrap("Income group (current World Bank classification)", 25),
     caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2022.", 95)
   )
 ```

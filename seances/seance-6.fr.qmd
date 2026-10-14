@@ -35,7 +35,7 @@ source(here("R", "theme_cours.R"))   # theme_cours(), pal_cours, pal_regions
 
 wdi <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
 
-# L'espérance de vie de la CAF n'est pas fiable dans cette version des WDI (14,7 en 2009, 18,8 en 2022) : on exclut toutes les années
+# L'espérance de vie de la RCA n'est pas fiable dans cette version des WDI (14,7 en 2009, 18,8 en 2022) : on l'exclut pour toutes les années
 wdi <- wdi |> mutate(life_exp = if_else(iso3c == "CAF", NA_real_, life_exp))
 
 # Coupe transversale utilisée dans la plupart des exemples : dernière année bien couverte
@@ -151,10 +151,10 @@ wdi |>
                 labels = label_dollar(scale_cut = cut_short_scale())) +
   facet_grid(income ~ year, labeller = label_wrap_gen(10)) +
   labs(
-    title = "Au sein des groupes de revenu, le lien revenu-santé paraît plus faible",
+    title = str_wrap("Au sein des groupes de revenu, le lien revenu-santé paraît plus faible", 60),
     x = "PIB par habitant, PPA (en $ PPA constants de 2021, échelle log)",
     y = "Espérance de vie à la naissance (ans)",
-    caption = "Source : Banque mondiale, World Development Indicators (WDI), 2000 et 2022. Un point = un pays. Lignes : groupe de revenu (classification actuelle de la Banque mondiale)."
+    caption = str_wrap("Source : Banque mondiale, World Development Indicators (WDI), 2000 et 2022. Un point = un pays. Lignes : groupe de revenu (classification actuelle de la Banque mondiale).", 95)
   )
 ```
 
@@ -175,10 +175,10 @@ trend_region |>
   geom_line(linewidth = 1, colour = pal_cours[["principal"]]) +
   facet_wrap(~ region, scales = "free_y", nrow = 1) +
   labs(
-    title = "Axes y libres : les 3 ans gagnés par l'Amérique du Nord paraissent valoir les 11 ans de l'Afrique",
-    subtitle = "Attention : les panneaux ne partagent plus la même échelle",
+    title = str_wrap("Axes y libres : les 3 ans gagnés par l'Amérique du Nord paraissent valoir les 11 ans de l'Afrique", 60),
+    subtitle = str_wrap("Attention : les panneaux ne partagent plus la même échelle", 75),
     x = NULL, y = "Espérance de vie à la naissance (ans)",
-    caption = "Source : Banque mondiale, World Development Indicators (WDI), 2000-2023. Moyenne simple des pays."
+    caption = str_wrap("Source : Banque mondiale, World Development Indicators (WDI), 2000-2023. Moyenne simple des pays.", 95)
   )
 ```
 
@@ -449,9 +449,9 @@ ggplot(life_world, aes(x = year, y = life_exp)) +
            label = "COVID-19\n(2020-21)", hjust = 1,
            colour = pal_cours[["accent"]], fontface = "bold") +
   labs(
-    title = "L'espérance de vie mondiale a reculé après 2019 et s'est rétablie en 2023",
+    title = str_wrap("L'espérance de vie mondiale a reculé après 2019 et s'est rétablie en 2023", 60),
     x = NULL, y = "Espérance de vie à la naissance (ans)",
-    caption = "Source : Banque mondiale, World Development Indicators (WDI), 2000-2023. Moyenne des pays pondérée par la population."
+    caption = str_wrap("Source : Banque mondiale, World Development Indicators (WDI), 2000-2023. Moyenne des pays pondérée par la population.", 95)
   )
 ```
 
@@ -651,7 +651,9 @@ p_int <- ggplot(wdi_hover, aes(x = gdp_pc_ppp, y = life_exp,
   )
 
 ggplotly(p_int, tooltip = "label") |>
-  layout(legend = list(orientation = "h", x = 0, y = -0.3), margin = list(b = 120))
+  layout(height = 520, legend = list(orientation = "h", x = 0, y = -0.25),
+         margin = list(b = 140, t = 60), font = list(family = "IBM Plex Sans"),
+         paper_bgcolor = "#fcfaf6", plot_bgcolor = "#fcfaf6")
 ```
 
 Remarques :

@@ -151,10 +151,10 @@ wdi |>
                 labels = label_dollar(scale_cut = cut_short_scale())) +
   facet_grid(income ~ year, labeller = label_wrap_gen(10)) +
   labs(
-    title = "Within income groups, the income-health link looks weaker",
+    title = str_wrap("Within income groups, the income-health link looks weaker", 60),
     x = "GDP per capita, PPP (constant 2021 int. $, log scale)",
     y = "Life expectancy at birth (years)",
-    caption = "Source: World Bank, World Development Indicators (WDI), 2000 and 2022. One point = one country. Rows: income group (current World Bank classification)."
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2000 and 2022. One point = one country. Rows: income group (current World Bank classification).", 95)
   )
 ```
 
@@ -175,10 +175,10 @@ trend_region |>
   geom_line(linewidth = 1, colour = pal_cours[["principal"]]) +
   facet_wrap(~ region, scales = "free_y", nrow = 1) +
   labs(
-    title = "Free y-axes: North America's 3-year gain looks as large as Africa's 11-year gain",
-    subtitle = "Careful: the panels no longer share a scale",
+    title = str_wrap("Free y-axes: North America's 3-year gain looks as large as Africa's 11-year gain", 60),
+    subtitle = str_wrap("Careful: the panels no longer share a scale", 75),
     x = NULL, y = "Life expectancy at birth (years)",
-    caption = "Source: World Bank, World Development Indicators (WDI), 2000-2023. Unweighted mean of countries."
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2000-2023. Unweighted mean of countries.", 95)
   )
 ```
 
@@ -449,9 +449,9 @@ ggplot(life_world, aes(x = year, y = life_exp)) +
            label = "COVID-19\n(2020-21)", hjust = 1,
            colour = pal_cours[["accent"]], fontface = "bold") +
   labs(
-    title = "Global life expectancy fell after 2019 and recovered by 2023",
+    title = str_wrap("Global life expectancy fell after 2019 and recovered by 2023", 60),
     x = NULL, y = "Life expectancy at birth (years)",
-    caption = "Source: World Bank, World Development Indicators (WDI), 2000-2023. Population-weighted mean of countries."
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2000-2023. Population-weighted mean of countries.", 95)
   )
 ```
 
@@ -651,7 +651,9 @@ p_int <- ggplot(wdi_hover, aes(x = gdp_pc_ppp, y = life_exp,
   )
 
 ggplotly(p_int, tooltip = "label") |>
-  layout(legend = list(orientation = "h", x = 0, y = -0.3), margin = list(b = 120))
+  layout(height = 520, legend = list(orientation = "h", x = 0, y = -0.25),
+         margin = list(b = 140, t = 60), font = list(family = "IBM Plex Sans"),
+         paper_bgcolor = "#fcfaf6", plot_bgcolor = "#fcfaf6")
 ```
 
 Notes:

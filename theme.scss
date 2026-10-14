@@ -306,6 +306,9 @@ ol.chain li + li::before { content: "→"; color: var(--color-muted); margin-rig
 .session-pager a.next { text-align: right; grid-column: 2; }
 @media print { .session-pager { display: none; } }
 
+// Wide display equations scroll inside their own box on phones (never cut)
+mjx-container[display="true"] { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+
 // Mermaid diagrams (session pages): centred, never wider than the column
 .cell-output-display svg, pre.mermaid + svg, .mermaid svg { max-width: 100%; }
 .quarto-figure-center .mermaid, div.mermaid { text-align: center; }
@@ -342,6 +345,9 @@ body::before {
   .callout-header[data-bs-toggle="collapse"] { border: 0 !important; background: none !important; padding-left: 0 !important;
     .callout-title-container { color: var(--color-ink) !important; } }
   .callout-toggle { display: none; }
+  // Printed solutions are labelled "Solution", not with the on-screen button text
+  .callout-header[data-bs-toggle="collapse"] .callout-title-container { font-size: 0 !important; }
+  .callout-header[data-bs-toggle="collapse"] .callout-title-container::before { content: "Solution"; font-size: 1rem; }
   details > :not(summary) { display: block !important; }
   details::details-content { content-visibility: visible; display: block; }
   div.sourceCode, pre, figure, .callout, table { break-inside: avoid; }

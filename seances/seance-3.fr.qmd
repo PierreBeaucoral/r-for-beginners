@@ -27,7 +27,7 @@ library(here)
 source(here("R", "theme_cours.R"))
 
 wdi <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
-# L'espérance de vie de la CAF n'est pas fiable dans cette version des WDI (14,7 en 2009, 18,8 en 2022) : on exclut toutes les années
+# L'espérance de vie de la RCA n'est pas fiable dans cette version des WDI (14,7 en 2009, 18,8 en 2022) : on l'exclut pour toutes les années
 wdi <- wdi |> mutate(life_exp = if_else(iso3c == "CAF", NA_real_, life_exp))
 ```
 
@@ -242,9 +242,9 @@ life_by_region |>
   ggplot(aes(x = mean_life, y = fct_reorder(region, mean_life))) +
   geom_col(fill = pal_cours[["principal"]]) +
   geom_text(aes(label = paste0("n = ", n_countries)), hjust = 1.1, colour = "white") +
-  labs(title = "L'Afrique subsaharienne accuse 17 ans de retard sur l'Amérique du Nord",
-       x = "Espérance de vie moyenne à la naissance, 2020 (ans)", y = NULL,
-       caption = "Source : Banque mondiale, World Development Indicators (WDI), 2020. Moyenne non pondérée entre pays.")
+  labs(title = str_wrap("L'Afrique subsaharienne accuse 17 ans de retard sur l'Amérique du Nord", 60),
+       x = "Espérance de vie moyenne, 2020 (ans)", y = NULL,
+       caption = str_wrap("Source : Banque mondiale, World Development Indicators (WDI), 2020. Moyenne non pondérée entre pays.", 95))
 ```
 
 Regardez maintenant `median_gdp_pc` dans la table précédente : `NA` pour cinq des sept régions. Une seule valeur manquante suffit pour que `median()` renvoie `NA`. Il faut parler des valeurs manquantes.
@@ -386,10 +386,10 @@ wdi |>
   summarise(median_life = median(life_exp, na.rm = TRUE), .by = region) |>
   ggplot(aes(x = median_life, y = fct_reorder(region, median_life))) +
   geom_col(fill = pal_cours[["principal"]]) +
-  labs(title = "L'espérance de vie est la plus faible en Afrique subsaharienne",
-       x = "Espérance de vie médiane à la naissance, 2020 (ans)",
+  labs(title = str_wrap("L'espérance de vie est la plus faible en Afrique subsaharienne", 60),
+       x = "Espérance de vie médiane, 2020 (ans)",
        y = NULL,
-       caption = "Source : Banque mondiale, WDI. Médiane entre les pays de chaque région.")
+       caption = str_wrap("Source : Banque mondiale, WDI. Médiane entre les pays de chaque région.", 95))
 ```
 
 Sans `fct_reorder()`, les barres seraient en ordre alphabétique et le message serait plus difficile à lire.
@@ -654,10 +654,10 @@ gdp_gini |>
   scale_colour_manual(values = c(China = pal_cours[["accent"]],
                                  India = "#E69F00",
                                  `United States` = pal_cours[["principal"]])) +
-  labs(title = "Les inégalités ont augmenté dans les trois pays ; en Chine, surtout avant 2010",
+  labs(title = str_wrap("Les inégalités ont augmenté dans les trois pays ; en Chine, surtout avant 2010", 60),
        x = "Année", y = "Coefficient de Gini (WID, 0-1)",
        colour = NULL,
-       caption = "Source : Banque mondiale (WDI, PIB) jointe à la World Inequality Database (WID, Gini) par iso3c et année.")
+       caption = str_wrap("Source : Banque mondiale (WDI, PIB) jointe à la World Inequality Database (WID, Gini) par iso3c et année.", 95))
 ```
 
 ::: {.callout-note}

@@ -29,6 +29,7 @@ Imports:
     WDI,
     zip,
     lubridate,
-    babelquarto
+    babelquarto,
+    png
 Remotes:
     ropensci-review-tools/babelquarto

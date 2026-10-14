@@ -1,4 +1,5 @@
 ---
+pagetitle: "R pour débutants · Master GPE"
 title: "R pour l'analyse de données"
 subtitle: "Cours pour débutants · Master GPE (CERDI / IHEDD)"
 description: "Six séances pour apprendre R : importer, manipuler, décrire, visualiser et présenter des données de développement."
@@ -81,7 +82,7 @@ Dès la séance 5, vous produirez des graphiques comme celui-ci : **les pays plu
 #| fig-width: 8
 #| fig-height: 6.5
 wdi <- read_csv(here("data", "wdi_panel.csv"), show_col_types = FALSE)
-# l'espérance de vie de la RCA est peu fiable dans cette version des WDI (14,7 en 2009, 18,8 en 2022) : on l'exclut, toutes années
+# L'espérance de vie de la RCA n'est pas fiable dans cette version des WDI (14,7 en 2009, 18,8 en 2022) : on l'exclut pour toutes les années
 wdi <- wdi |> mutate(life_exp = if_else(iso3c == "CAF", NA_real_, life_exp))
 
 wdi |>
@@ -95,7 +96,7 @@ wdi |>
   labs(
     title = "Les pays plus riches vivent plus longtemps, avec des rendements décroissants",
     x = "PIB par habitant (en $ PPA constants de 2021, échelle logarithmique)",
-    y = "Espérance de vie à la naissance (années)",
+    y = "Espérance de vie à la naissance (ans)",
     colour = NULL,
     caption = "Source : Banque mondiale, World Development Indicators (WDI), 2019. Aire des bulles = population."
   )

@@ -74,14 +74,14 @@ wdi |>
 
 ```{r}
 #| label: caf-series
-wdi |> filter(iso3c == "CAF") |> select(year, life_exp)
+wdi |> filter(iso3c == "CAF") |> select(year, life_exp) |> print(n = Inf)
 ```
 
 La série fait des bonds : 49,9 ans en 2008 puis 14,7 en 2009, 52,3 en 2018 puis 31,5 en 2019, 18,8 en 2022 puis 57,4 en 2023. Des chutes de 20 à 35 ans suivies d'un rebond immédiat sont des artefacts des données, pas des résultats, et elles reviennent plusieurs années : dans cette version des WDI, aucune année de la série d'espérance de vie de la RCA n'est fiable. On ne modifie jamais le fichier brut : on **exclut toute la série de la RCA explicitement et on le dit**, et nous ferons de même aux séances 5 et 6. La RCA sort donc de l'échantillon 2019, et le N ci-dessous compte un pays de moins.
 
 ```{r}
 #| label: fix-caf
-# L'espérance de vie de la RCA n'est pas fiable dans cette version des WDI (14,7 en 2009, 18,8 en 2022) : on exclut toutes les années
+# L'espérance de vie de la RCA n'est pas fiable dans cette version des WDI (14,7 en 2009, 18,8 en 2022) : on l'exclut pour toutes les années
 wdi <- wdi |> mutate(life_exp = if_else(iso3c == "CAF", NA_real_, life_exp))
 ```
 
@@ -246,9 +246,9 @@ ggplot(cs, aes(income, life_exp)) +
   geom_boxplot(fill = "grey90", colour = pal_cours[["principal"]], outlier.shape = NA) +
   geom_jitter(width = 0.15, alpha = 0.5, colour = pal_cours[["principal"]]) +
   labs(
-    title = "Les pays plus riches vivent plus longtemps ; la dispersion est proche d'un groupe à l'autre",
+    title = str_wrap("Les pays plus riches vivent plus longtemps ; la dispersion est proche d'un groupe à l'autre", 60),
     x = NULL, y = "Espérance de vie à la naissance (ans)",
-    caption = paste0("Source : Banque mondiale, World Development Indicators (WDI), 2019. N = ", n_cs, " pays.")
+    caption = str_wrap(paste0("Source : Banque mondiale, World Development Indicators (WDI), 2019. N = ", n_cs, " pays."), 95)
   )
 ```
 
@@ -363,9 +363,9 @@ ggplot(sim, aes(x, y)) +
   geom_point(alpha = 0.6, colour = pal_cours[["principal"]]) +
   facet_wrap(~ panel, scales = "free") +
   labs(
-    title = "r mesure l'association linéaire, pas l'existence d'un lien entre deux variables",
+    title = str_wrap("r mesure l'association linéaire, pas l'existence d'un lien entre deux variables", 60),
     x = "X", y = "Y",
-    caption = "Source : données simulées."
+    caption = str_wrap("Source : données simulées.", 95)
   )
 ```
 
@@ -426,10 +426,10 @@ cs |>
   ggplot(aes(elec_access, life_exp)) +
   geom_point(alpha = 0.6, colour = pal_cours[["principal"]]) +
   labs(
-    title = "L'espérance de vie augmente avec l'accès à l'électricité, mais le lien s'infléchit",
+    title = str_wrap("L'espérance de vie augmente avec l'accès à l'électricité, mais le lien s'infléchit", 60),
     x = "Accès à l'électricité (% de la population)",
     y = "Espérance de vie à la naissance (ans)",
-    caption = "Source : Banque mondiale, World Development Indicators (WDI), 2019."
+    caption = str_wrap("Source : Banque mondiale, World Development Indicators (WDI), 2019.", 95)
   )
 ```
 La plupart des pays sont proches de 100 % d'accès ; la relation n'est pentue qu'aux faibles niveaux d'accès, une seule droite est donc un résumé grossier. C'est une caractéristique des données (un plafond), pas une erreur.
@@ -633,6 +633,8 @@ nice_names <- function(x) {
 }
 
 modelsummary(
+  output = "gt",   # un tableau gt : même aspect que les autres tableaux, sans script externe
+  fmt = \(x) nb(x, 3),   # séparateur décimal de la langue de la page
   list("(1) Tous" = m1, "(2) Avec Gini" = m2, "(3) + Gini" = m3, "(4) + Région" = m4),
   coef_rename = nice_names,
   stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
@@ -817,6 +819,8 @@ t.test(life_exp ~ group, data = cs_h)
 ma <- feols(life_exp ~ log_gdp_pc,              data = cs, vcov = "hetero")
 mb <- feols(life_exp ~ log_gdp_pc + elec_access, data = cs, vcov = "hetero")
 modelsummary(
+  output = "gt",   # un tableau gt : même aspect que les autres tableaux, sans script externe
+  fmt = \(x) nb(x, 3),   # séparateur décimal de la langue de la page
   list("(1)" = ma, "(2)" = mb),
   coef_rename = c("log_gdp_pc" = "Log du PIB par habitant",
                   "elec_access" = "Accès à l'électricité (%)",

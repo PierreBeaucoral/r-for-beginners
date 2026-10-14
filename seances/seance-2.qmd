@@ -294,9 +294,9 @@ ggplot(wid_gini, aes(x = year, y = gini, colour = iso3c)) +
                                  IND = "#E69F00",
                                  USA = pal_cours[["principal"]])) +
   labs(
-    title = "Income inequality rose in China, India and the USA, 2000-2020",
+    title = str_wrap("Income inequality rose in China, India and the USA, 2000-2020", 60),
     x = NULL, y = "Gini index (0-1)", colour = NULL,
-    caption = "Source: World Inequality Database (WID), pre-tax national income."
+    caption = str_wrap("Source: World Inequality Database (WID), pre-tax national income.", 95)
   )
 ```
 
@@ -431,9 +431,9 @@ wdi_panel |>
   geom_line(linewidth = 1) +
   scale_y_continuous(labels = label_percent(), limits = c(0, 1)) +
   labs(
-    title = "Most indicators cover nearly all countries; the Gini index does not",
+    title = str_wrap("Most indicators cover nearly all countries; the Gini index does not", 60),
     x = NULL, y = "Share of countries with a value", colour = NULL,
-    caption = "Source: World Bank, World Development Indicators (WDI), 2000-2023."
+    caption = str_wrap("Source: World Bank, World Development Indicators (WDI), 2000-2023.", 95)
   )
 ```
 

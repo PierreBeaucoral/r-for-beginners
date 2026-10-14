@@ -68,8 +68,9 @@ nb <- function(x, digits = 1) {
 }
 
 #' Dollar amount for prose: "$26,480" (EN) or "26 480 $" (FR).
+#' The $ is escaped (\\$) because two plain $ in one paragraph are read as math.
 nb_dollar <- function(x, digits = 0) {
-  if (course_lang() == "fr") paste0(nb(x, digits), " $") else paste0("$", nb(x, digits))
+  if (course_lang() == "fr") paste0(nb(x, digits), " \\$") else paste0("\\$", nb(x, digits))
 }
 
 #' Percentage for prose (x already in percent): "31%" (EN) or "31 %" (FR).

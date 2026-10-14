@@ -1,4 +1,5 @@
 ---
+pagetitle: "R for beginners · Master GPE"
 title: "R for data analysis"
 subtitle: "Beginner course · Master GPE (CERDI / IHEDD)"
 description: "Six sessions to learn R: import, manipulate, describe, visualise and report development data."
