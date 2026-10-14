@@ -31,4 +31,4 @@ Imports:
     lubridate,
     babelquarto
 Remotes:
-    ropensci/babelquarto
+    ropensci-review-tools/babelquarto
