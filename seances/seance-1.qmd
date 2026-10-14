@@ -9,7 +9,8 @@ Session objectives
 - Install R and RStudio and find your way around the four panes.
 - Work inside an RStudio Project and build file paths with `here::here()`.
 - Create objects, call functions, and read a help page.
-- Tell installing a package from loading it, and read the three most common error messages.
+- Know what R keeps in memory, and check that a script runs on its own after a restart.
+- Tell installing a package from loading it, read the three most common error messages, tell an error from a warning, and ask a question someone can answer.
 - Manipulate vectors (including missing values) and data frames in base R.
 - Compute GDP per capita for three countries: the first step of our common thread.
 :::
@@ -30,6 +31,8 @@ Sys.setenv(LANGUAGE = "en")  # error messages in English
 
 **Script of this session:** [download seance-1.R](../scripts/seance-1.R){download="seance-1.R"}, all the code of this page in one file.
 :::
+
+**Pacing.** The core path takes about 200 minutes, exercises included. Exercise 1.7 is **Optional: going further**; Exercises 1.3, 1.4, 1.8 and 1.9 are for homework.
 
 ## What are R and RStudio? {#sec-what}
 
@@ -148,15 +151,83 @@ flowchart LR
 **The script is your product; the console is a scratch pad.** If it is not in the script, it does not exist tomorrow.
 :::
 
-Good habit: a script should run from top to bottom in a fresh R session and give the same results. If it does not, something is hidden in your environment.
+Good habit: a script should run from top to bottom in a fresh R session and give the same results. If it does not, something is hidden in your environment ([What R remembers](#sec-memory) shows how to check).
 
 ## Objects, types and operators {#sec-objects}
 
 ::: {.section-goal}
-[≈ 25 min]{.duration} After this section you can create objects, tell their types apart and use operators.
+[≈ 30 min]{.duration} After this section you can store anything under a name, find it again, tell types apart and use operators.
 :::
 
-An **object** is a name attached to a value. We create it with the assignment arrow `<-` (shortcut `Alt + -` on Windows, `Option + -` on Mac).
+### R is an object-based language
+
+Everything you work with in R lives in an **object**: a name that points to a value stored in the computer's memory. Two moves do all the work:
+
+- `name <- value` **stores** the value under the name (the assignment arrow `<-`, shortcut `Alt + -` on Windows, `Option + -` on Mac). It prints nothing.
+- Typing the name alone **recalls** the value and prints it.
+
+You can store *anything* under a name: a number, a text, a vector, a whole table, the result of a calculation, and later a regression model (Session 4) or a chart (Session 5). Even a function is an object.
+
+```{r}
+gdp_usa <- 20.9                                  # a number: US GDP, US$ trillions, 2020
+three_countries <- c("USA", "China", "India")    # a vector of texts (see Vectors)
+gdp_table <- tibble(country = three_countries,
+                    gdp_bn  = c(20894, 14688, 2671))  # a whole table (see Data frames)
+gdp_sum <- sum(gdp_table$gdp_bn)                 # the result of a calculation
+my_mean <- mean                                  # even a function
+
+gdp_usa            # typing the name recalls the value
+gdp_table
+my_mean(gdp_table$gdp_bn)   # my_mean now works exactly like mean
+```
+
+```{mermaid}
+%%| echo: false
+flowchart LR
+    A["gdp_usa"] -->|"points to"| A2["20.9"]
+    B["three_countries"] -->|"points to"| B2["USA, China, India"]
+    C["gdp_table"] -->|"points to"| C2["a table: 3 rows, 2 columns"]
+    D["my_mean"] -->|"points to"| D2["the function mean()"]
+```
+
+Every object you create appears in the **Environment** pane (top right), with a preview of its value; click a table there to open it. `ls()` prints the same list in the console:
+
+```{r}
+ls()
+```
+
+The list also holds objects you did not type: `pal_cours`, `theme_cours`, `nb` and a few others were created by `source(here("R", "theme_cours.R"))` in the setup chunk. `theme_cours` and `nb` are functions, stored under a name like any other object.
+
+::: {.callout-note}
+## In plain words
+An object is a **labelled box**. `<-` puts something in the box and writes the label; typing the label opens the box. A box can hold a single number or a whole data set.
+:::
+
+::: {.callout-warning}
+## Common mistake
+"I ran the line and nothing happened." Nothing *printed*, but the value was stored: look in the Environment pane, or type the name.
+:::
+
+::: {.callout-tip}
+## Exercise 1.1: store and recall
+Store India's 2020 GDP, `2671` (US$ billions), in `gdp_india`; the three GDPs `20894, 14688, 2671` in a vector `gdp_three`; and their total in `gdp_total`. (a) Find the three objects in the Environment pane. (b) Recall `gdp_total` by typing its name. (c) Store the function `max` under the name `largest` and use it on `gdp_three`.
+:::
+
+::: {.callout-note collapse="true"}
+## Show solution
+```{r}
+gdp_india <- 2671
+gdp_three <- c(20894, 14688, 2671)
+gdp_total <- sum(gdp_three)
+
+gdp_total            # (b) recall by name
+
+largest <- max       # (c) a function stored under a new name
+largest(gdp_three)
+```
+:::
+
+### Types of values
 
 ```{r}
 gdp_usa <- 20.9          # numeric
@@ -235,10 +306,99 @@ total_gdp <- sum(20.9, 14.7, 2.7)
 total_gdp
 ```
 
+## What R remembers {#sec-memory}
+
+::: {.section-goal}
+[≈ 15 min]{.duration} After this section you can tell your script from R's memory, and prove that your script runs on its own.
+:::
+
+R keeps two different things, and beginners mix them up all the time:
+
+| | The **script** (`session1.R`) | The **environment** (objects in memory) |
+|---|---|---|
+| Where | A file on your disk | R's memory, shown in the Environment pane |
+| Survives closing RStudio? | Yes, once saved (`Ctrl/Cmd + S`) | No: it is rebuilt by running the script |
+| Changes when | You type and save | You *run* a line |
+
+Three consequences:
+
+- **Editing a line in the script does not change the object** until you run that line again.
+- **Deleting a line does not delete the object**: it stays in memory until R restarts.
+- **An object created in the console** is in memory but in no file. Tomorrow it is gone.
+
+R stores a *value*, not a formula. An object computed from another one does not update when the first one changes:
+
+```{r}
+pop_india <- 1380                     # millions, rounded 2020
+pop_three <- 331 + 1411 + pop_india   # computed once, from the value 1380
+pop_india <- 1400                     # we change pop_india...
+pop_three                             # ...pop_three still holds the old total
+```
+
+A spreadsheet would recompute `pop_three`; R does not. To update it, run its line again.
+
+### Restart R and rerun everything
+
+The only proof that your script is complete is to run it in an **empty** memory:
+
+1. `Session > Restart R` (`Ctrl/Cmd + Shift + F10`). The environment is emptied; the script is untouched.
+2. Run the whole script: `Ctrl/Cmd + Shift + Enter`, or the **Source** button above the script.
+3. If it runs to the end and gives the same results, your script works alone. If it stops, you have found something that existed only in memory.
+
+Do this before you send a script to anyone, and whenever results look strange.
+
+Make RStudio start empty every time. In `Tools > Global Options > General`:
+
+- uncheck **Restore .RData into workspace at startup**;
+- set **Save workspace to .RData on exit** to **Never**.
+
+Otherwise RStudio silently reloads yesterday's objects, and a broken script can look like it works.
+
+::: {.callout-important}
+## Key idea
+**The script is the truth; the environment is a temporary copy.** Anything you need tomorrow must be written in the script.
+:::
+
+::: {.callout-tip}
+## Exercise 1.2: why did it work yesterday?
+Yesterday, Amina tested a value in the console by typing `pop_mn <- c(331, 1411, 1380)`. Then she wrote this script, ran it, and got three GDPs per capita:
+
+```{r}
+#| eval: false
+gdp_bn <- c(20894, 14688, 2671)          # GDP, US$ billions, 2020
+gdp_pc <- gdp_bn * 1000 / pop_mn         # GDP per capita, US$
+gdp_pc
+```
+
+Reproduce her day: type her console line in the **console**, put the three lines in your script, and run them. Then restart R and run the script again. What happens, why, and how do you fix the script?
+:::
+
+::: {.callout-note collapse="true"}
+## Show solution
+After the restart, the memory is empty and the script stops:
+
+```{r}
+#| error: true
+gdp_bn <- c(20894, 14688, 2671)          # GDP, US$ billions, 2020
+gdp_pc <- gdp_bn * 1000 / pop_mn         # GDP per capita, US$
+```
+
+`pop_mn` was only ever created in the console, so it lived in memory, not in the script. Yesterday it worked because the object was still there. The fix is to write the missing line in the script, above the line that uses it:
+
+```{r}
+gdp_bn <- c(20894, 14688, 2671)          # GDP, US$ billions, 2020
+pop_mn <- c(331, 1411, 1380)             # population, millions, 2020
+gdp_pc <- gdp_bn * 1000 / pop_mn         # GDP per capita, US$
+gdp_pc
+```
+
+Restart R and run the script once more: it now works on its own.
+:::
+
 ## Getting help {#sec-help}
 
 ::: {.section-goal}
-[≈ 10 min]{.duration} After this section you can find and read the help page of any function.
+[≈ 15 min]{.duration} After this section you can find and read the help page of any function, and ask a question someone can answer.
 :::
 
 Nobody remembers every function. Knowing how to find help is the skill.
@@ -272,6 +432,25 @@ ChatGPT, Claude, Copilot and similar tools are useful to **explain an error mess
 - Never paste confidential or personal data into a public tool.
 
 Learn the basics first: you cannot check an answer you do not understand.
+:::
+
+### Asking a question someone can answer
+
+Whether you ask the teacher, a classmate or an AI assistant, the answer can only be as good as the question. A good question gives four things:
+
+1. **What you want to do**, in one sentence.
+2. **The smallest piece of code that fails**: cut everything that is not needed to see the problem. Restart R first and check that it still fails.
+3. **The exact message**, copied and pasted, not retyped or summarised.
+4. **What you expected**, and what you already tried.
+
+Compare:
+
+- Bad: *"My GDP code doesn't work, help!"* Nobody can answer this without asking you four questions back.
+- Good: *"I want GDP per capita for three countries. In a fresh session, `gdp_pc <- gdp_bn * 1000 / pop_mn` gives `Error: object 'pop_mn' not found`. I expected three numbers. I checked the spelling of `pop_mn`. What am I missing?"*
+
+::: {.callout-note}
+## In plain words
+Often, cutting your code down to the smallest failing example shows you the problem before you even send the question. That is not wasted time: it is how experienced users debug.
 :::
 
 ## Packages: install once, load every time {#sec-packages}
@@ -315,7 +494,7 @@ Install them all now (a few minutes). Each later session starts with a "Packages
 ## Reading error messages {#sec-errors}
 
 ::: {.section-goal}
-[≈ 15 min]{.duration} After this section you can read the three most common error messages and fix them.
+[≈ 20 min]{.duration} After this section you can read the three most common error messages and fix them, tell an error from a warning or a message, and get out of the `+` prompt.
 :::
 
 You will get errors every day, including in ten years. An error is not a failure: R is telling you what it could not do. Read the message, then look at the line it points to. Here are the three you will meet most.
@@ -347,7 +526,47 @@ feols(gdp ~ year, data = tibble(gdp = 1:3, year = 1:3))
 **An error message is information, not a verdict.** It names the object, symbol or function R choked on; start there.
 :::
 
-Method: (1) read the message aloud, (2) find the line, (3) check spelling, commas, quotes and parentheses, (4) check you ran the previous lines and loaded the package, (5) only then search online or ask an AI assistant, pasting the exact message.
+Method: (1) read the message aloud, (2) find the line, (3) check spelling, commas, quotes and parentheses, (4) check you ran the previous lines and loaded the package, (5) only then search online or ask an AI assistant, pasting the exact message (see [Asking a question someone can answer](#sec-help)).
+
+### Error, warning or message?
+
+R talks to you in three ways, and they do not mean the same thing.
+
+A **warning** means R finished, but something looks wrong. Here the population of China was stored as text with a thousands comma; R cannot read `"1,411"` as a number:
+
+```{r}
+#| warning: true
+pop_text <- c("331", "1,411", "1380")   # numbers stored as text
+as.numeric(pop_text)
+```
+
+You got a result, but it holds an `NA` (a missing value, see [Vectors](#sec-vectors)) where China should be. Never ignore a warning: find out what it is about.
+
+A **message** is just information. `read_csv()` (Session 2) tells you what it read:
+
+```{r}
+#| message: true
+gdp_3 <- read_csv(here("data", "wdi_3countries.csv"))
+```
+
+| R says | Starts with | Did R finish? | What you do |
+|---|---|---|---|
+| **Error** | `Error` | No: nothing was produced | Fix the code, then run it again |
+| **Warning** | `Warning` | Yes, but check the result | Find what the warning is about |
+| **Message** | (anything) | Yes | Read it once; often nothing to do |
+
+### The `+` prompt: R is waiting for you
+
+The console normally shows `>`, ready for a new command. If it shows `+`, R thinks your expression is **not finished**: a parenthesis or a quote is still open, so it waits for the rest.
+
+```
+> mean(c(4, 8, 15)
++
+> country <- "India
++
+```
+
+The first line misses a `)`, the second a closing `"`. Press **Escape** to get back to `>`, fix the line in your script, and run it again.
 
 ## Vectors {#sec-vectors}
 
@@ -580,7 +799,7 @@ countries3 |>
 ## The pipe `|>` {#sec-pipe}
 
 ::: {.section-goal}
-[≈ 5 min]{.duration} After this section you can read and write a chain of steps with the pipe.
+[≈ 10 min]{.duration} After this section you can read and write a chain of steps with the pipe, and run it one step at a time.
 :::
 
 The **pipe** `|>` passes the result on its left as the first argument of the function on its right. Code reads left to right, like a recipe:
@@ -604,16 +823,24 @@ Read `|>` as **"and then"**: take the vector, *and then* sum it, *and then* take
 
 Same result. From session 2 on, most of our code uses the pipe (shortcut `Ctrl/Cmd + Shift + M`).
 
+**When a chain fails, run it one step at a time.** Select the code up to the end of one step (for example `c(1, 4, 9) |> sum()`) and run only the selection with `Ctrl/Cmd + Enter`. Look at the result, then add the next step. The first step whose result surprises you is where the problem is. Session 3 practises this on longer chains.
+
+```{r}
+c(1, 4, 9)                     # step 1: the data
+c(1, 4, 9) |> sum()            # steps 1 and 2
+c(1, 4, 9) |> sum() |> sqrt()  # the full chain
+```
+
 ## Exercises {#sec-exercises}
 
 ::: {.section-goal}
-[≈ 25 min]{.duration} After these exercises you can apply every tool of the session on your own.
+[≈ 10 min]{.duration} After these exercises you can apply every tool of the session on your own.
 :::
 
-Do 1.1 to 1.5 in class; 1.6 and 1.7 are for homework or if you finish early.
+Exercises 1.1 and 1.2 are in the sections above. Here, do 1.5 and 1.6 in class. 1.3 and 1.4 repeat objects and operators: do them at home. 1.7 is **Optional: going further**; 1.8 and 1.9 are for homework.
 
 ::: {.callout-tip}
-## Exercise 1.1
+## Exercise 1.3
 Create an object `my_age` with your age, an object `my_name` with your name, and an object `is_student` with a logical value. Display the three, then check the class of each.
 :::
 
@@ -635,7 +862,7 @@ class(is_student)
 :::
 
 ::: {.callout-tip}
-## Exercise 1.2
+## Exercise 1.4
 Create `x <- 12` and `y <- 5`. Compute their sum, difference, product and quotient. Then check whether `x` is greater than `y` and whether `x` is divisible by `y` (hint: remainder `%%`).
 :::
 
@@ -656,7 +883,7 @@ x %% y == 0   # FALSE: the remainder is 2
 :::
 
 ::: {.callout-tip}
-## Exercise 1.3
+## Exercise 1.5
 Open the help page of `round()`. What does the argument `digits` do, and what is its default value? Then round `pi` to 3 decimals.
 :::
 
@@ -675,7 +902,7 @@ round(pi, digits = 3)
 :::
 
 ::: {.callout-tip}
-## Exercise 1.4
+## Exercise 1.6
 Create a numeric vector `gdp_growth` with the values `2.3, 5.1, NA, 3.8, -0.4` (annual growth rates in %). Compute its mean with and without the missing value, then select the years with growth above 2.
 :::
 
@@ -693,7 +920,7 @@ gdp_growth[!is.na(gdp_growth) & gdp_growth > 2]
 :::
 
 ::: {.callout-tip}
-## Exercise 1.5
+## Exercise 1.7 (Optional: going further)
 Create the vector `1:10` and then, with a single operation each, (a) the vector of its squares, (b) only the even numbers (hint: `%% 2 == 0`), (c) the odd numbers from 1 to 9 with `seq()`.
 :::
 
@@ -709,7 +936,7 @@ seq(1, 9, by = 2)
 :::
 
 ::: {.callout-tip}
-## Exercise 1.6
+## Exercise 1.8
 Create a data frame `students` with three columns `name`, `age`, `is_student` and four rows (invent them). Then: (a) display the `age` column, (b) display the first row, (c) keep the rows with `age` strictly greater than 20, **whatever their student status**, (d) sort by age.
 :::
 
@@ -730,7 +957,7 @@ students[order(students$age), ]    # (d)
 :::
 
 ::: {.callout-tip}
-## Exercise 1.7
+## Exercise 1.9
 Using `countries3`, add a column `gdp_share` equal to each country's share of the three countries' total GDP, in %. Then display the countries sorted by `gdp_share`, highest first.
 :::
 
@@ -748,11 +975,14 @@ countries3[order(countries3$gdp_share, decreasing = TRUE),
 
 - Work in an **RStudio Project**, keep data in `data/`, and build paths with `here::here()`. Never use `setwd()` with a path from your own computer.
 - Write code in a **script**, run it with `Ctrl/Cmd + Enter`, and comment the *why*.
-- Create objects with `<-`; the three basic types are numeric, character and logical. Do not name objects after functions (`sum`, `mean`, `summary`).
+- R is object-based: `name <- value` stores anything (a number, a vector, a table, a result, a function) and typing the name recalls it. The three basic types are numeric, character and logical. Do not name objects after functions (`sum`, `mean`, `summary`).
+- The script is the truth, the environment a temporary copy. Restart R (`Ctrl/Cmd + Shift + F10`) and rerun the whole script to prove it works alone; never restore `.RData` at startup.
 - **Install** a package once (`install.packages()`, in the console), **load** it in each script (`library()`, at the top).
 - Read errors calmly: *object not found* (typo), *unexpected symbol* (syntax), *could not find function* (typo or package not loaded). `?function` opens the help page.
+- An **error** stops R; a **warning** means R finished but the result needs checking; a **message** is information. A `+` in the console means an unfinished line: press Escape.
+- Ask answerable questions: goal, smallest failing code, exact message, what you expected.
 - Operations on vectors are vectorised; `NA` is contagious, so use `na.rm = TRUE` knowingly.
 - A data frame is a set of vectors of equal length: `data$col`, `data[rows, cols]`. GDP per capita = GDP / population.
-- The pipe `|>` feeds the result of one step into the next: `x |> f() |> g()`.
+- The pipe `|>` feeds the result of one step into the next: `x |> f() |> g()`. When a chain fails, run it one step at a time.
 
 Next: [Session 2: Importing and exporting data](seance-2.qmd).

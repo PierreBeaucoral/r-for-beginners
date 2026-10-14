@@ -11,6 +11,9 @@ Session objectives
 - Handle missing values explicitly and always report the number of observations (N).
 - Reshape a table between wide and long format with `tidyr`.
 - Combine tables with joins, and detect a join that silently loses observations.
+- Find the broken step of a pipeline by running it one step at a time.
+- Write a simple function of your own.
+- Repair a messy file in a script, and rerun the whole analysis from a fresh R session.
 
 :::
 
@@ -43,6 +46,8 @@ glimpse(wdi)
 Each row is a country-year: `r n_distinct(wdi$iso3c)` countries, `r n_distinct(wdi$year)` years, `r nb(nrow(wdi), 0)` rows.
 
 The setup already applies one correction: the life expectancy of the Central African Republic (`CAF`) is set to missing (`NA`) for every year, because this release of the series is unreliable (Session 4 shows it). So the summaries of `life_exp` below use `na.rm = TRUE`, which skips missing values; we explain it in the section on missing values.
+
+**Pacing.** The core path takes about 190 minutes, exercises included. Exercises 3.3 to 3.7 are marked **Optional: going further** and add about 45 minutes: do them if time allows, or at home.
 
 ## The pipe and the main verbs
 
@@ -191,6 +196,116 @@ wdi_2020 |>
 :::
 
 `count()` is a shortcut for "group and count the rows". We come back to it below.
+
+## Debugging a pipeline, one step at a time {#sec-debugging}
+
+::: {.section-goal}
+[≈ 15 min]{.duration} After this section you can find the broken step of a pipeline by running it piece by piece, and read what an error message tells you.
+:::
+
+A pipeline fails as a whole, but it breaks at one step. This one should list the Sub-Saharan African countries in 2020 with their life expectancy and GDP per capita. It contains three mistakes:
+
+```{r}
+#| error: true
+wdi |>
+  filter(year = 2020, region == "Sub-Saharan africa") |>
+  select(country, life_exp, gdp_pc) |>
+  arrange(desc(life_exp))
+```
+
+### Read the error message
+
+Read the message from the top. The first line names the verb that failed (`filter()`). The line starting with `!` says what went wrong. The lines starting with `ℹ` often suggest the fix: here R even guesses that we meant `year == 2020`.
+
+R stops at the **first** error. Fix it and run again:
+
+```{r}
+#| error: true
+wdi |>
+  filter(year == 2020, region == "Sub-Saharan africa") |>
+  select(country, life_exp, gdp_pc) |>
+  arrange(desc(life_exp))
+```
+
+Now `select()` fails: the column `gdp_pc` does not exist. `names(wdi)` lists the exact names; the column is called `gdp_pc_ppp`.
+
+```{r}
+wdi |>
+  filter(year == 2020, region == "Sub-Saharan africa") |>
+  select(country, life_exp, gdp_pc_ppp) |>
+  arrange(desc(life_exp))
+```
+
+No error this time, and yet the table has **0 rows**. This is the most dangerous kind of bug, because R does not complain.
+
+### Run the pipeline one step at a time
+
+To find a silent bug, run the pipeline up to one `|>` at a time and look at what comes out. In RStudio, select the lines up to (not including) a `|>` and press `Ctrl + Enter` (`Cmd + Enter` on a Mac). Ending a piece with `nrow()` or `glimpse()` shows how many rows survive:
+
+```{r}
+wdi |> nrow()                                    # start: all country-years
+wdi |> filter(year == 2020) |> nrow()            # one year: one row per country
+wdi |> filter(year == 2020, region == "Sub-Saharan africa") |> nrow()   # 0: the problem is here
+```
+
+The count drops to zero at the region condition. Look at the values that actually exist:
+
+```{r}
+wdi |> distinct(region)
+```
+
+The data write `"Sub-Saharan Africa"`, with a capital A, and `==` compares text exactly. The repaired pipeline, checked with `glimpse()`:
+
+```{r}
+wdi |>
+  filter(year == 2020, region == "Sub-Saharan Africa") |>
+  select(country, life_exp, gdp_pc_ppp) |>
+  arrange(desc(life_exp)) |>
+  glimpse()
+```
+
+`r wdi |> filter(year == 2020, region == "Sub-Saharan Africa") |> nrow()` countries, as expected.
+
+::: {.callout-important}
+## Key idea
+An error is a friend: it tells you which step failed and often how to fix it. An **empty or too small result** is silent. After every `filter()` or join, check `nrow()`, and copy category labels from `distinct()` instead of typing them from memory.
+:::
+
+::: {.callout-tip}
+## Exercise 3.1: repair a pipeline
+This pipeline should list the low-income countries in 2019, with GDP per capita (PPP) in thousands of dollars and life expectancy, richest first. It contains two bugs. Run it, find them step by step, fix them, and say how many countries the table contains.
+
+```{r}
+#| eval: false
+wdi |>
+  filter(year == 2019, income == "Low Income") |>
+  mutate(gdp_pc_k = gdp_pc_ppp / 1000) |>
+  select(country, gdp_pc_k, life_expectancy) |>
+  arrange(desc(gdp_pc_k))
+```
+:::
+
+::: {.callout-note collapse="true"}
+## Show solution
+```{r}
+# Bug 1 (error in select): the column is life_exp, not life_expectancy
+names(wdi)
+
+# Bug 2 (silent): no row survives the filter
+wdi |> filter(year == 2019, income == "Low Income") |> nrow()
+wdi |> distinct(income)   # the label is "Low income", lower-case i
+
+low_2019 <- wdi |>
+  filter(year == 2019, income == "Low income") |>
+  mutate(gdp_pc_k = gdp_pc_ppp / 1000) |>
+  select(country, gdp_pc_k, life_exp) |>
+  arrange(desc(gdp_pc_k))
+
+nrow(low_2019)   # N
+low_2019
+```
+The table contains `r nrow(low_2019)` low-income countries. If you fix only the column name, the pipeline runs without any error and returns an empty table: the second bug can only be found by checking `nrow()` step by step.
+:::
 
 ## Summarising by group, and missing values
 
@@ -698,12 +813,86 @@ gdp3 |>
 
 Do not ignore that warning: it almost always means the key is incomplete (here, `year` was forgotten).
 
-## Exercises (≈ 45 min)
+## Writing a simple function {#sec-functions}
 
-The following exercises use the panel `wdi`.
+::: {.section-goal}
+[≈ 15 min]{.duration} After this section you can write a small function of your own and use it inside `mutate()`.
+:::
+
+You have used many functions written by others: `mean()`, `filter()`, `read_csv()`. When you repeat the same calculation, you can write your own. This one computes GDP per capita:
+
+```{r}
+gdp_per_capita <- function(gdp, population) {
+  gdp / population
+}
+```
+
+::: {.definition}
+**Function**: a named recipe. Its **arguments** are the inputs (here `gdp` and `population`). The **body**, between `{ }`, is the calculation. The value of the last line is what the function **returns**.
+:::
+
+Running this chunk creates the function (it appears in the Environment pane) but computes nothing yet. Call it first on numbers where you know the answer:
+
+```{r}
+gdp_per_capita(gdp = 2e12, population = 50e6)   # 2,000 billion / 50 million = 40,000
+```
+
+Test a new function on a case you can check by hand before you trust it on real data.
+
+The arguments are **local**: inside the function, `gdp` and `population` are whatever you passed in, and they vanish when the function finishes. Only the returned value comes out.
+
+Because `/` works on whole columns, the function also works inside `mutate()`. The three-country table `gdp3` (from the joins section) has GDP but no population, so we add it from `wdi` with the join habits of the previous section:
+
+```{r}
+gdp_pc_3 <- gdp3 |>
+  filter(year == 2020) |>
+  left_join(select(wdi, iso3c, year, population), by = c("iso3c", "year")) |>
+  mutate(gdp_pc = gdp_per_capita(gdp, population))
+
+nrow(gdp_pc_3)   # 3 rows, as in the left table
+gdp_pc_3
+```
+
+In 2020, GDP per capita was about `r nb_dollar(gdp_pc_3$gdp_pc[gdp_pc_3$iso3c == "USA"])` in the United States, `r nb_dollar(gdp_pc_3$gdp_pc[gdp_pc_3$iso3c == "CHN"])` in China and `r nb_dollar(gdp_pc_3$gdp_pc[gdp_pc_3$iso3c == "IND"])` in India. These are current US dollars at market exchange rates: they are not comparable with the `gdp_pc_ppp` column of `wdi`, which corrects for price levels (PPP).
+
+::: {.callout-warning}
+## Common mistake
+`could not find function "gdp_per_capita"`: the chunk that defines the function was not run in this R session, for instance after a restart. Run it first; in a script, put your functions at the top, right after `library()`.
+:::
+
+Later sessions define small helpers the same way: `unmatched()` in Session 5 lists the countries that fail to match the world map, and Session 6 builds its own theme function for charts.
 
 ::: {.callout-tip}
-## Exercise 3.1: filter, select, arrange
+## Exercise 3.2: a growth-rate function
+Write a function `growth_pct(before, after)` that returns the percentage change from `before` to `after`. Test it: `growth_pct(100, 110)` must give 10. Then use it to compute the growth of GDP per capita (PPP) between 2000 and 2020 for China, India and the United States. Hint: get one column per year with `pivot_wider()`.
+:::
+
+::: {.callout-note collapse="true"}
+## Show solution
+```{r}
+growth_pct <- function(before, after) {
+  100 * (after - before) / before
+}
+
+growth_pct(100, 110)   # check by hand: 10
+
+growth_3 <- wdi |>
+  filter(iso3c %in% c("CHN", "IND", "USA"), year %in% c(2000, 2020)) |>
+  select(country, year, gdp_pc_ppp) |>
+  pivot_wider(names_from = year, values_from = gdp_pc_ppp, names_prefix = "y") |>
+  mutate(growth = growth_pct(y2000, y2020))
+
+growth_3
+```
+Between 2000 and 2020, GDP per capita (PPP) grew by about `r nb_pct(growth_3$growth[growth_3$country == "China"])` in China, `r nb_pct(growth_3$growth[growth_3$country == "India"])` in India and `r nb_pct(growth_3$growth[growth_3$country == "United States"])` in the United States (N = 3 countries).
+:::
+
+## Exercises (≈ 25 min, plus ≈ 45 min optional)
+
+The following exercises use the panel `wdi`, except the last one. **Exercise 3.8, the capstone, is the core of this part.** Exercises 3.3 to 3.7 are extra practice, one per topic of the day: do the ones on the topics you feel least sure about, in class if time allows or at home.
+
+::: {.callout-tip}
+## Exercise 3.3: filter, select, arrange (Optional: going further)
 Take the Sub-Saharan African countries in 2020. Keep `country`, `income`, `life_exp` and `elec_access`, and sort them by life expectancy, lowest first. Show the 10 lowest. How many countries are in the group?
 :::
 
@@ -721,7 +910,7 @@ head(ssa_2020, 10)
 :::
 
 ::: {.callout-tip}
-## Exercise 3.2: mutate
+## Exercise 3.4: mutate (Optional: going further)
 Add the column `gdp_bn` (GDP in billions of US$) to the 2020 data and list the 5 countries with the largest GDP, with their GDP in billions. Which of them are *not* high income?
 :::
 
@@ -739,7 +928,7 @@ The list contains China, which is not classified as high income by the World Ban
 :::
 
 ::: {.callout-tip}
-## Exercise 3.3: group_by and summarise
+## Exercise 3.5: group_by and summarise (Optional: going further)
 For each region **and** each year in 2000, 2010 and 2020, compute the median GDP per capita (PPP) and the number of countries it is based on (excluding missing values). Present the result sorted by year, then by median.
 :::
 
@@ -759,7 +948,7 @@ The N is not constant across regions and years: compare the medians with that in
 :::
 
 ::: {.callout-tip}
-## Exercise 3.4: pivot
+## Exercise 3.6: pivot (Optional: going further)
 Build a table with one row per region and one column per year (2000, 2010, 2020) containing the median life expectancy. Then bring it back to long format.
 :::
 
@@ -781,7 +970,7 @@ life_region |>
 :::
 
 ::: {.callout-tip}
-## Exercise 3.5: join and check
+## Exercise 3.7: join and check (Optional: going further)
 Using `wdi`, build the table `elec` with `iso3c`, `year`, `elec_access` for 2020. Then join it to a table `small` that contains `iso3c = c("FRA", "GHA", "XXX")` (the last code does not exist). Use `left_join()`, check the number of rows, then use `anti_join()` to find the code that did not match.
 :::
 
@@ -804,6 +993,111 @@ small |> anti_join(elec, by = "iso3c")   # the code that failed to match
 ```
 :::
 
+::: {.callout-tip}
+## Exercise 3.8: repair this analysis (capstone)
+A colleague sends you `data/raw/repair_me.csv`: real World Bank values for six countries (Afghanistan, Angola, Bangladesh, Benin, Ghana, Kenya) in 2015 and 2019. [Session 2](seance-2.qmd) opened this file and introduced the tools that convert text into numbers; here you finish the job.
+
+**Task: compute the mean life expectancy in each year over the six countries, and state the N behind each mean.**
+
+The file contains four planted problems, plus one trap. Work in a new script (`File > New File > R Script`), in three stages:
+
+1. **Inspect** before computing anything: `glimpse()`, `count(country, year)`, `distinct(country)`.
+2. **Repair** each problem with a line of code. Never edit the CSV by hand: the raw file stays as it came, and the script records every change.
+3. **Rerun** the whole script from a fresh R session: `Session > Restart R` (`Ctrl/Cmd + Shift + F10`), then run the script from top to bottom, as in [Session 1](seance-1.qmd). If it runs without you and prints the same numbers, your analysis is reproducible.
+:::
+
+::: {.callout-note collapse="true"}
+## Show hint
+A checklist to work through, in order:
+
+- [ ] Read every column as text, so that R guesses nothing: `read_csv(path, col_types = cols(.default = col_character()))`. Look at the file as stored with `read_lines(path, n_max = 3)`.
+- [ ] `glimpse()`: which columns should be numbers? How is GDP written?
+- [ ] `distinct(country)`: how many spellings per country? `str_trim()` removes the spaces at both ends, `str_to_title()` fixes the capitals.
+- [ ] `count(country, year) |> filter(n > 1)`: is a country-year there twice? `distinct()` drops rows that are exact copies.
+- [ ] `sort(unique(life_exp))`: which value is not a number? `na_if()` turns it into `NA`.
+- [ ] `iso_num`: a code, not a number. Keep its leading zeros (`"004"`).
+- [ ] Final checks: 12 rows, no country-year twice, N printed next to each mean.
+:::
+
+::: {.callout-note collapse="true"}
+## Show solution
+**Inspect.** Read everything as text first, then look:
+
+```{r}
+# 1. Read: every column as text, so that R guesses nothing behind your back
+repair_raw <- read_csv(here("data", "raw", "repair_me.csv"),
+                       col_types = cols(.default = col_character()))
+
+# 2. Inspect
+read_lines(here("data", "raw", "repair_me.csv"), n_max = 3)   # the file as stored
+glimpse(repair_raw)
+repair_raw |> distinct(country)
+repair_raw |> count(country, year) |> filter(n > 1)
+sort(unique(repair_raw$life_exp))
+```
+
+**Diagnose.** The four problems and the trap:
+
+1. **GDP is stored as text** with a thousands separator (`"2,967.7"`): `as.numeric()` would return `NA`; `parse_number()` reads it.
+2. **Kenya has inconsistent labels**, `" kenya"` and `"KENYA "` (spaces and capitals): `distinct()` shows seven "countries" instead of six.
+3. **Ghana 2019 appears twice**: it would count twice in the mean.
+4. **Benin's 2015 life expectancy is written `"n/a"`**: the whole column is text, so `mean()` cannot use it.
+5. The trap: **`iso_num` is a code**. Read as a number, `"004"` becomes `4`, which is what Excel or base R's `read.csv()` do. Keep it as text.
+
+Recent versions of `read_csv()` guess some columns correctly on their own (they read `"2,967.7"` as a number). Do not count on it: the guess depends on the package version and on the file. Reading as text and converting yourself always gives the same result.
+
+**Repair**, one line per problem, then check:
+
+```{r}
+# 3. Repair
+repaired <- repair_raw |>
+  mutate(
+    country    = str_to_title(str_trim(country)),     # " kenya", "KENYA " -> "Kenya"
+    year       = as.integer(year),
+    gdp_pc_ppp = parse_number(gdp_pc_ppp),            # "2,967.7" -> 2967.7
+    life_exp   = as.numeric(na_if(life_exp, "n/a"))   # "n/a" -> NA, then a number
+  ) |>                                                # iso_num stays text: "004"
+  distinct()                                          # drops the second Ghana 2019 row
+
+# 4. Check the repair
+glimpse(repaired)
+nrow(repaired)                                      # 12 country-years
+repaired |> count(country, year) |> filter(n > 1)   # empty: no duplicate left
+```
+
+**Answer**, with N:
+
+```{r}
+# 5. Mean life expectancy by year, with N
+life_by_year <- repaired |>
+  summarise(
+    n_countries = n(),
+    n_life      = sum(!is.na(life_exp)),
+    mean_life   = mean(life_exp, na.rm = TRUE),
+    .by = year
+  )
+
+life_by_year
+```
+
+Mean life expectancy over the six countries: `r nb(life_by_year$mean_life[life_by_year$year == 2015], 2)` years in 2015 (N = `r life_by_year$n_life[life_by_year$year == 2015]`: Benin is missing) and `r nb(life_by_year$mean_life[life_by_year$year == 2019], 2)` years in 2019 (N = `r life_by_year$n_life[life_by_year$year == 2019]`).
+
+The two means do not rest on the same countries. To compare years, keep the countries observed in both:
+
+```{r}
+# Same five countries in both years: drop Benin, missing in 2015
+life_same <- repaired |>
+  filter(country != "Benin") |>
+  summarise(n_countries = n(), mean_life = mean(life_exp), .by = year)
+
+life_same
+```
+
+On the same `r life_same$n_countries[1]` countries, the mean rises from `r nb(life_same$mean_life[life_same$year == 2015], 2)` to `r nb(life_same$mean_life[life_same$year == 2019], 2)` years. With Benin included in 2019 only, the rise looks smaller, because Benin has the lowest life expectancy of the group.
+
+**Rerun.** Last step: `Session > Restart R`, then run the whole script. Same numbers? Then the repair is done and documented.
+:::
+
 ## Key takeaways
 
 - The pipe `|>` reads as "and then": one verb per line, top to bottom.
@@ -812,5 +1106,8 @@ small |> anti_join(elec, by = "iso3c")   # the code that failed to match
 - Factors give categories a meaningful order (`factor(levels = )`, `fct_relevel()`, `fct_reorder()`).
 - Tidy data: one variable per column, one observation per row, one value per cell. `pivot_longer()` and `pivot_wider()` switch between formats.
 - A join never complains about keys that do not match. Join on codes (`iso3c`), count rows before and after, and run `anti_join()`.
+- To debug a pipeline, run it up to one `|>` at a time and check `nrow()`. Errors tell you where; empty results do not.
+- A function has arguments (inputs), a body (the calculation) and returns its last value. Test it on a case you can check by hand.
+- Repair a messy file in a script, never by hand: inspect, repair, check, then rerun everything from a fresh R session.
 
 Next: [Session 4: Descriptive statistics and regression](seance-4.qmd).

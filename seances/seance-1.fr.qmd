@@ -9,7 +9,8 @@ Objectifs de la séance
 - Installer R et RStudio et vous repérer dans les quatre panneaux.
 - Travailler dans un projet RStudio et construire des chemins de fichiers avec `here::here()`.
 - Créer des objets, appeler des fonctions et lire une page d'aide.
-- Distinguer l'installation d'un package de son chargement, et lire les trois messages d'erreur les plus courants.
+- Savoir ce que R garde en mémoire, et vérifier qu'un script tourne seul après un redémarrage.
+- Distinguer l'installation d'un package de son chargement, lire les trois messages d'erreur les plus courants, distinguer une erreur d'un avertissement, et poser une question à laquelle on peut répondre.
 - Manipuler des vecteurs (y compris les valeurs manquantes) et des data frames avec R de base.
 - Calculer le PIB par habitant de trois pays : la première étape de notre fil rouge.
 :::
@@ -30,6 +31,8 @@ Sys.setenv(LANGUAGE = "en")  # messages d'erreur en anglais
 
 **Script de la séance :** [télécharger seance-1.R](../scripts/seance-1.R){download="seance-1.R"}, tout le code de cette page dans un seul fichier.
 :::
+
+**Rythme.** Le parcours principal dure environ 200 minutes, exercices compris. L'exercice 1.7 est **Facultatif : pour aller plus loin** ; les exercices 1.3, 1.4, 1.8 et 1.9 sont à faire à la maison.
 
 ## Que sont R et RStudio ? {#sec-what}
 
@@ -90,7 +93,7 @@ r-course/
 │   └── raw/       # fichiers originaux, en lecture seule
 ├── R/
 │   └── theme_cours.R   # thème graphique commun (de data.zip)
-└── output/        # everything you produce (created in session 2)
+└── output/        # tout ce que vous produisez (créé en séance 2)
 ```
 
 ### Pourquoi `here::here()` et jamais `setwd()`
@@ -148,15 +151,83 @@ flowchart LR
 **Le script est votre production ; la console est un brouillon.** Si ce n'est pas dans le script, cela n'existe plus demain.
 :::
 
-Une bonne habitude : un script doit pouvoir s'exécuter de haut en bas dans une session R neuve et donner les mêmes résultats. Si ce n'est pas le cas, quelque chose est caché dans votre environnement.
+Une bonne habitude : un script doit pouvoir s'exécuter de haut en bas dans une session R neuve et donner les mêmes résultats. Si ce n'est pas le cas, quelque chose est caché dans votre environnement ([Ce que R retient](#sec-memory) montre comment le vérifier).
 
 ## Objets, types et opérateurs {#sec-objects}
 
 ::: {.section-goal}
-[≈ 25 min]{.duration} Après cette section, vous saurez créer des objets, distinguer leurs types et utiliser les opérateurs.
+[≈ 30 min]{.duration} Après cette section, vous saurez ranger n'importe quoi sous un nom, le retrouver, distinguer les types et utiliser les opérateurs.
 :::
 
-Un **objet** est un nom attaché à une valeur. On le crée avec la flèche d'assignation `<-` (raccourci `Alt + -` sous Windows, `Option + -` sous Mac).
+### R est un langage fondé sur les objets
+
+Tout ce que vous manipulez dans R vit dans un **objet** : un nom qui pointe vers une valeur stockée dans la mémoire de l'ordinateur. Deux gestes font tout le travail :
+
+- `name <- value` **stocke** la valeur sous le nom (la flèche d'assignation `<-`, raccourci `Alt + -` sous Windows, `Option + -` sous Mac). Rien ne s'affiche.
+- Taper le nom seul **rappelle** la valeur et l'affiche.
+
+Vous pouvez ranger *n'importe quoi* sous un nom : un nombre, un texte, un vecteur, un tableau entier, le résultat d'un calcul, et plus tard un modèle de régression (séance 4) ou un graphique (séance 5). Même une fonction est un objet.
+
+```{r}
+gdp_usa <- 20.9                                  # un nombre : PIB des États-Unis, milliers de milliards de US$, 2020
+three_countries <- c("USA", "China", "India")    # un vecteur de textes (voir Vecteurs)
+gdp_table <- tibble(country = three_countries,
+                    gdp_bn  = c(20894, 14688, 2671))  # un tableau entier (voir Data frames)
+gdp_sum <- sum(gdp_table$gdp_bn)                 # le résultat d'un calcul
+my_mean <- mean                                  # même une fonction
+
+gdp_usa            # taper le nom rappelle la valeur
+gdp_table
+my_mean(gdp_table$gdp_bn)   # my_mean fonctionne maintenant exactement comme mean
+```
+
+```{mermaid}
+%%| echo: false
+flowchart LR
+    A["gdp_usa"] -->|"pointe vers"| A2["20.9"]
+    B["three_countries"] -->|"pointe vers"| B2["USA, China, India"]
+    C["gdp_table"] -->|"pointe vers"| C2["un tableau : 3 lignes, 2 colonnes"]
+    D["my_mean"] -->|"pointe vers"| D2["la fonction mean()"]
+```
+
+Chaque objet que vous créez apparaît dans le panneau **Environment** (en haut à droite), avec un aperçu de sa valeur ; cliquez sur un tableau pour l'ouvrir. `ls()` affiche la même liste dans la console :
+
+```{r}
+ls()
+```
+
+La liste contient aussi des objets que vous n'avez pas tapés : `pal_cours`, `theme_cours`, `nb` et quelques autres ont été créés par `source(here("R", "theme_cours.R"))` dans le bloc de préparation. `theme_cours` et `nb` sont des fonctions, rangées sous un nom comme n'importe quel autre objet.
+
+::: {.callout-note}
+## En clair
+Un objet est une **boîte étiquetée**. `<-` met quelque chose dans la boîte et écrit l'étiquette ; taper l'étiquette ouvre la boîte. Une boîte peut contenir un seul nombre ou un jeu de données entier.
+:::
+
+::: {.callout-warning}
+## Erreur fréquente
+« J'ai exécuté la ligne et il ne s'est rien passé. » Rien ne s'est *affiché*, mais la valeur a été stockée : regardez dans le panneau Environment, ou tapez le nom.
+:::
+
+::: {.callout-tip}
+## Exercice 1.1 : ranger et rappeler
+Rangez le PIB 2020 de l'Inde, `2671` (milliards de US$), dans `gdp_india` ; les trois PIB `20894, 14688, 2671` dans un vecteur `gdp_three` ; et leur total dans `gdp_total`. (a) Retrouvez les trois objets dans le panneau Environment. (b) Rappelez `gdp_total` en tapant son nom. (c) Rangez la fonction `max` sous le nom `largest` et appliquez-la à `gdp_three`.
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+gdp_india <- 2671
+gdp_three <- c(20894, 14688, 2671)
+gdp_total <- sum(gdp_three)
+
+gdp_total            # (b) rappel par le nom
+
+largest <- max       # (c) une fonction rangée sous un nouveau nom
+largest(gdp_three)
+```
+:::
+
+### Types de valeurs
 
 ```{r}
 gdp_usa <- 20.9          # numeric (nombre)
@@ -235,10 +306,99 @@ total_gdp <- sum(20.9, 14.7, 2.7)
 total_gdp
 ```
 
+## Ce que R retient {#sec-memory}
+
+::: {.section-goal}
+[≈ 15 min]{.duration} Après cette section, vous saurez distinguer votre script de la mémoire de R, et prouver que votre script tourne seul.
+:::
+
+R garde deux choses différentes, et les débutants les confondent sans cesse :
+
+| | Le **script** (`session1.R`) | L'**environnement** (les objets en mémoire) |
+|---|---|---|
+| Où | Un fichier sur votre disque | La mémoire de R, affichée dans le panneau Environment |
+| Survit à la fermeture de RStudio ? | Oui, une fois enregistré (`Ctrl/Cmd + S`) | Non : on le reconstruit en exécutant le script |
+| Change quand | Vous tapez et enregistrez | Vous *exécutez* une ligne |
+
+Trois conséquences :
+
+- **Modifier une ligne du script ne change pas l'objet** tant que vous n'exécutez pas cette ligne à nouveau.
+- **Supprimer une ligne ne supprime pas l'objet** : il reste en mémoire jusqu'au redémarrage de R.
+- **Un objet créé dans la console** est en mémoire mais dans aucun fichier. Demain, il a disparu.
+
+R stocke une *valeur*, pas une formule. Un objet calculé à partir d'un autre ne se met pas à jour quand le premier change :
+
+```{r}
+pop_india <- 1380                     # millions, arrondi 2020
+pop_three <- 331 + 1411 + pop_india   # calculé une fois, à partir de la valeur 1380
+pop_india <- 1400                     # on modifie pop_india...
+pop_three                             # ...pop_three contient toujours l'ancien total
+```
+
+Un tableur recalculerait `pop_three` ; R ne le fait pas. Pour le mettre à jour, exécutez à nouveau sa ligne.
+
+### Redémarrer R et tout relancer
+
+La seule preuve que votre script est complet, c'est de l'exécuter dans une mémoire **vide** :
+
+1. `Session > Restart R` (`Ctrl/Cmd + Shift + F10`). L'environnement est vidé ; le script n'est pas touché.
+2. Exécutez tout le script : `Ctrl/Cmd + Shift + Enter`, ou le bouton **Source** au-dessus du script.
+3. S'il va jusqu'au bout et donne les mêmes résultats, votre script fonctionne seul. S'il s'arrête, vous avez trouvé quelque chose qui n'existait qu'en mémoire.
+
+Faites-le avant d'envoyer un script à qui que ce soit, et chaque fois que des résultats vous semblent étranges.
+
+Faites démarrer RStudio à vide à chaque fois. Dans `Tools > Global Options > General` :
+
+- décochez **Restore .RData into workspace at startup** ;
+- réglez **Save workspace to .RData on exit** sur **Never**.
+
+Sinon, RStudio recharge discrètement les objets de la veille, et un script cassé peut sembler fonctionner.
+
+::: {.callout-important}
+## Idée clé
+**Le script fait foi ; l'environnement n'en est qu'une copie temporaire.** Tout ce dont vous aurez besoin demain doit être écrit dans le script.
+:::
+
+::: {.callout-tip}
+## Exercice 1.2 : pourquoi ça marchait hier ?
+Hier, Amina a testé une valeur dans la console en tapant `pop_mn <- c(331, 1411, 1380)`. Puis elle a écrit ce script, l'a exécuté et a obtenu trois PIB par habitant :
+
+```{r}
+#| eval: false
+gdp_bn <- c(20894, 14688, 2671)          # PIB, milliards de US$, 2020
+gdp_pc <- gdp_bn * 1000 / pop_mn         # PIB par habitant, US$
+gdp_pc
+```
+
+Reproduisez sa journée : tapez sa ligne dans la **console**, mettez les trois lignes dans votre script et exécutez-les. Redémarrez ensuite R et exécutez à nouveau le script. Que se passe-t-il, pourquoi, et comment corriger le script ?
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+Après le redémarrage, la mémoire est vide et le script s'arrête :
+
+```{r}
+#| error: true
+gdp_bn <- c(20894, 14688, 2671)          # PIB, milliards de US$, 2020
+gdp_pc <- gdp_bn * 1000 / pop_mn         # PIB par habitant, US$
+```
+
+`pop_mn` n'a jamais été créé que dans la console : il vivait en mémoire, pas dans le script. Hier, cela fonctionnait parce que l'objet était encore là. La correction consiste à écrire la ligne manquante dans le script, au-dessus de la ligne qui l'utilise :
+
+```{r}
+gdp_bn <- c(20894, 14688, 2671)          # PIB, milliards de US$, 2020
+pop_mn <- c(331, 1411, 1380)             # population, millions, 2020
+gdp_pc <- gdp_bn * 1000 / pop_mn         # PIB par habitant, US$
+gdp_pc
+```
+
+Redémarrez R et exécutez le script une fois de plus : il fonctionne maintenant seul.
+:::
+
 ## Obtenir de l'aide {#sec-help}
 
 ::: {.section-goal}
-[≈ 10 min]{.duration} Après cette section, vous saurez trouver et lire la page d'aide de n'importe quelle fonction.
+[≈ 15 min]{.duration} Après cette section, vous saurez trouver et lire la page d'aide de n'importe quelle fonction, et poser une question à laquelle on peut répondre.
 :::
 
 Personne ne retient toutes les fonctions. Savoir trouver de l'aide est la vraie compétence.
@@ -272,6 +432,25 @@ ChatGPT, Claude, Copilot et les outils similaires sont utiles pour **expliquer u
 - Ne collez jamais de données confidentielles ou personnelles dans un outil public.
 
 Apprenez d'abord les bases : on ne peut pas vérifier une réponse qu'on ne comprend pas.
+:::
+
+### Poser une question à laquelle on peut répondre
+
+Que vous demandiez à l'enseignant, à un camarade ou à un assistant d'IA, la réponse ne peut pas être meilleure que la question. Une bonne question donne quatre choses :
+
+1. **Ce que vous voulez faire**, en une phrase.
+2. **Le plus petit morceau de code qui échoue** : retirez tout ce qui n'est pas nécessaire pour voir le problème. Redémarrez d'abord R et vérifiez que l'échec se produit toujours.
+3. **Le message exact**, copié-collé, ni retapé ni résumé.
+4. **Ce que vous attendiez**, et ce que vous avez déjà essayé.
+
+Comparez :
+
+- Mauvaise : *« Mon code sur le PIB ne marche pas, au secours ! »* Personne ne peut répondre sans vous poser quatre questions en retour.
+- Bonne : *« Je veux le PIB par habitant de trois pays. Dans une session neuve, `gdp_pc <- gdp_bn * 1000 / pop_mn` renvoie `Error: object 'pop_mn' not found`. J'attendais trois nombres. J'ai vérifié l'orthographe de `pop_mn`. Qu'est-ce qui m'échappe ? »*
+
+::: {.callout-note}
+## En clair
+Souvent, réduire votre code au plus petit exemple qui échoue vous montre le problème avant même d'envoyer la question. Ce n'est pas du temps perdu : c'est ainsi que les utilisateurs expérimentés déboguent.
 :::
 
 ## Packages : installer une fois, charger à chaque fois {#sec-packages}
@@ -315,7 +494,7 @@ Installez-les tous maintenant (quelques minutes). Chaque séance suivante commen
 ## Lire les messages d'erreur {#sec-errors}
 
 ::: {.section-goal}
-[≈ 15 min]{.duration} Après cette section, vous saurez lire les trois messages d'erreur les plus courants et les corriger.
+[≈ 20 min]{.duration} Après cette section, vous saurez lire les trois messages d'erreur les plus courants et les corriger, distinguer une erreur d'un avertissement ou d'un message, et sortir de l'invite `+`.
 :::
 
 Vous aurez des erreurs tous les jours, y compris dans dix ans. Une erreur n'est pas un échec : R vous dit ce qu'il n'a pas pu faire. Lisez le message, puis regardez la ligne qu'il désigne. Voici les trois que vous rencontrerez le plus.
@@ -347,7 +526,47 @@ feols(gdp ~ year, data = tibble(gdp = 1:3, year = 1:3))
 **Un message d'erreur est une information, pas un verdict.** Il nomme l'objet, le symbole ou la fonction sur lequel R a buté ; commencez par là.
 :::
 
-Méthode : (1) lisez le message à voix haute, (2) trouvez la ligne, (3) vérifiez l'orthographe, les virgules, les guillemets et les parenthèses, (4) vérifiez que vous avez exécuté les lignes précédentes et chargé le package, (5) seulement ensuite, cherchez en ligne ou demandez à un assistant d'IA en collant le message exact.
+Méthode : (1) lisez le message à voix haute, (2) trouvez la ligne, (3) vérifiez l'orthographe, les virgules, les guillemets et les parenthèses, (4) vérifiez que vous avez exécuté les lignes précédentes et chargé le package, (5) seulement ensuite, cherchez en ligne ou demandez à un assistant d'IA en collant le message exact (voir [Poser une question à laquelle on peut répondre](#sec-help)).
+
+### Erreur, avertissement ou message ?
+
+R vous parle de trois façons, qui ne veulent pas dire la même chose.
+
+Un **avertissement** (*warning*) signifie que R est allé au bout, mais que quelque chose semble anormal. Ici, la population de la Chine a été stockée comme texte avec une virgule des milliers ; R ne peut pas lire `"1,411"` comme un nombre :
+
+```{r}
+#| warning: true
+pop_text <- c("331", "1,411", "1380")   # des nombres stockés comme texte
+as.numeric(pop_text)
+```
+
+Vous avez obtenu un résultat, mais il contient un `NA` (une valeur manquante, voir [Vecteurs](#sec-vectors)) à la place de la Chine. N'ignorez jamais un avertissement : cherchez ce qu'il signale.
+
+Un **message** est une simple information. `read_csv()` (séance 2) vous dit ce qu'il a lu :
+
+```{r}
+#| message: true
+gdp_3 <- read_csv(here("data", "wdi_3countries.csv"))
+```
+
+| R affiche | Commence par | R est-il allé au bout ? | Ce que vous faites |
+|---|---|---|---|
+| **Erreur** | `Error` | Non : rien n'a été produit | Corrigez le code, puis relancez-le |
+| **Avertissement** | `Warning` | Oui, mais vérifiez le résultat | Cherchez ce que signale l'avertissement |
+| **Message** | (n'importe quoi) | Oui | Lisez-le une fois ; souvent, rien à faire |
+
+### L'invite `+` : R vous attend
+
+La console affiche normalement `>`, prête pour une nouvelle commande. Si elle affiche `+`, R pense que votre expression **n'est pas terminée** : une parenthèse ou un guillemet est encore ouvert, alors il attend la suite.
+
+```
+> mean(c(4, 8, 15)
++
+> country <- "India
++
+```
+
+La première ligne oublie une `)`, la seconde un `"` fermant. Appuyez sur **Échap** (Escape) pour revenir à `>`, corrigez la ligne dans votre script et exécutez-la à nouveau.
 
 ## Vecteurs {#sec-vectors}
 
@@ -580,7 +799,7 @@ countries3 |>
 ## Le pipe `|>` {#sec-pipe}
 
 ::: {.section-goal}
-[≈ 5 min]{.duration} Après cette section, vous saurez lire et écrire une chaîne d'étapes avec le pipe.
+[≈ 10 min]{.duration} Après cette section, vous saurez lire et écrire une chaîne d'étapes avec le pipe, et l'exécuter une étape à la fois.
 :::
 
 Le **pipe** `|>` passe le résultat situé à sa gauche comme premier argument de la fonction située à sa droite. Le code se lit de gauche à droite, comme une recette :
@@ -604,16 +823,24 @@ Lisez `|>` comme **« et ensuite »** : prenez le vecteur, *et ensuite* faites-e
 
 Même résultat. À partir de la séance 2, la plupart de notre code utilise le pipe (raccourci `Ctrl/Cmd + Shift + M`).
 
+**Quand une chaîne échoue, exécutez-la une étape à la fois.** Sélectionnez le code jusqu'à la fin d'une étape (par exemple `c(1, 4, 9) |> sum()`) et exécutez seulement la sélection avec `Ctrl/Cmd + Enter`. Regardez le résultat, puis ajoutez l'étape suivante. La première étape dont le résultat vous surprend est celle où se trouve le problème. La séance 3 s'y exerce sur des chaînes plus longues.
+
+```{r}
+c(1, 4, 9)                     # étape 1 : les données
+c(1, 4, 9) |> sum()            # étapes 1 et 2
+c(1, 4, 9) |> sum() |> sqrt()  # la chaîne complète
+```
+
 ## Exercices {#sec-exercises}
 
 ::: {.section-goal}
-[≈ 25 min]{.duration} Après ces exercices, vous saurez appliquer seul chaque outil de la séance.
+[≈ 10 min]{.duration} Après ces exercices, vous saurez appliquer seul chaque outil de la séance.
 :::
 
-Faites les exercices 1.1 à 1.5 en classe ; 1.6 et 1.7 sont à faire à la maison ou si vous terminez en avance.
+Les exercices 1.1 et 1.2 se trouvent dans les sections précédentes. Ici, faites les exercices 1.5 et 1.6 en classe. Les exercices 1.3 et 1.4 reprennent les objets et les opérateurs : faites-les à la maison. L'exercice 1.7 est **Facultatif : pour aller plus loin** ; 1.8 et 1.9 sont à faire à la maison.
 
 ::: {.callout-tip}
-## Exercice 1.1
+## Exercice 1.3
 Créez un objet `my_age` avec votre âge, un objet `my_name` avec votre nom, et un objet `is_student` avec une valeur logique. Affichez les trois, puis vérifiez la classe de chacun.
 :::
 
@@ -635,7 +862,7 @@ class(is_student)
 :::
 
 ::: {.callout-tip}
-## Exercice 1.2
+## Exercice 1.4
 Créez `x <- 12` et `y <- 5`. Calculez leur somme, leur différence, leur produit et leur quotient. Vérifiez ensuite si `x` est supérieur à `y` et si `x` est divisible par `y` (indice : le reste `%%`).
 :::
 
@@ -656,7 +883,7 @@ x %% y == 0   # FALSE : le reste est 2
 :::
 
 ::: {.callout-tip}
-## Exercice 1.3
+## Exercice 1.5
 Ouvrez la page d'aide de `round()`. Que fait l'argument `digits`, et quelle est sa valeur par défaut ? Arrondissez ensuite `pi` à 3 décimales.
 :::
 
@@ -675,7 +902,7 @@ round(pi, digits = 3)
 :::
 
 ::: {.callout-tip}
-## Exercice 1.4
+## Exercice 1.6
 Créez un vecteur numérique `gdp_growth` avec les valeurs `2.3, 5.1, NA, 3.8, -0.4` (taux de croissance annuels en %). Calculez sa moyenne avec et sans la valeur manquante, puis sélectionnez les années où la croissance dépasse 2.
 :::
 
@@ -693,7 +920,7 @@ gdp_growth[!is.na(gdp_growth) & gdp_growth > 2]
 :::
 
 ::: {.callout-tip}
-## Exercice 1.5
+## Exercice 1.7 (Facultatif : pour aller plus loin)
 Créez le vecteur `1:10` puis, avec une seule opération chacun, (a) le vecteur de ses carrés, (b) uniquement les nombres pairs (indice : `%% 2 == 0`), (c) les nombres impairs de 1 à 9 avec `seq()`.
 :::
 
@@ -709,7 +936,7 @@ seq(1, 9, by = 2)
 :::
 
 ::: {.callout-tip}
-## Exercice 1.6
+## Exercice 1.8
 Créez un data frame `students` avec trois colonnes `name`, `age`, `is_student` et quatre lignes (inventez-les). Puis : (a) affichez la colonne `age`, (b) affichez la première ligne, (c) gardez les lignes dont `age` est strictement supérieur à 20, **quel que soit leur statut d'étudiant**, (d) triez par âge.
 :::
 
@@ -730,7 +957,7 @@ students[order(students$age), ]    # (d)
 :::
 
 ::: {.callout-tip}
-## Exercice 1.7
+## Exercice 1.9
 À partir de `countries3`, ajoutez une colonne `gdp_share` égale à la part du PIB de chaque pays dans le PIB total des trois pays, en %. Affichez ensuite les pays triés par `gdp_share`, du plus élevé au plus faible.
 :::
 
@@ -748,11 +975,14 @@ countries3[order(countries3$gdp_share, decreasing = TRUE),
 
 - Travaillez dans un **projet RStudio**, gardez les données dans `data/` et construisez les chemins avec `here::here()`. N'utilisez jamais `setwd()` avec un chemin de votre propre ordinateur.
 - Écrivez le code dans un **script**, exécutez-le avec `Ctrl/Cmd + Enter` et commentez le *pourquoi*.
-- Créez des objets avec `<-` ; les trois types de base sont numeric, character et logical. Ne donnez pas à vos objets des noms de fonctions (`sum`, `mean`, `summary`).
+- R est fondé sur les objets : `name <- value` range n'importe quoi (un nombre, un vecteur, un tableau, un résultat, une fonction) et taper le nom le rappelle. Les trois types de base sont numeric, character et logical. Ne donnez pas à vos objets des noms de fonctions (`sum`, `mean`, `summary`).
+- Le script fait foi, l'environnement n'en est qu'une copie temporaire. Redémarrez R (`Ctrl/Cmd + Shift + F10`) et relancez tout le script pour prouver qu'il tourne seul ; ne restaurez jamais `.RData` au démarrage.
 - **Installez** un package une fois (`install.packages()`, dans la console), **chargez**-le dans chaque script (`library()`, en haut).
 - Lisez les erreurs calmement : *object not found* (faute de frappe), *unexpected symbol* (syntaxe), *could not find function* (faute de frappe ou package non chargé). `?function` ouvre la page d'aide.
+- Une **erreur** arrête R ; un **avertissement** signifie que R est allé au bout mais que le résultat doit être vérifié ; un **message** est une information. Un `+` dans la console signale une ligne inachevée : appuyez sur Échap.
+- Posez des questions auxquelles on peut répondre : l'objectif, le plus petit code qui échoue, le message exact, ce que vous attendiez.
 - Les opérations sur les vecteurs sont vectorisées ; `NA` est contagieux, utilisez donc `na.rm = TRUE` en connaissance de cause.
 - Un data frame est un ensemble de vecteurs de même longueur : `data$col`, `data[rows, cols]`. PIB par habitant = PIB / population.
-- Le pipe `|>` transmet le résultat d'une étape à la suivante : `x |> f() |> g()`.
+- Le pipe `|>` transmet le résultat d'une étape à la suivante : `x |> f() |> g()`. Quand une chaîne échoue, exécutez-la une étape à la fois.
 
 Suite : [Séance 2 : Importer et exporter des données](seance-2.qmd).

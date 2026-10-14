@@ -11,6 +11,9 @@ Objectifs de la séance
 - Traiter explicitement les valeurs manquantes et toujours indiquer le nombre d'observations (N).
 - Passer une table du format large au format long (et inversement) avec `tidyr`.
 - Combiner des tables avec des jointures, et repérer une jointure qui perd silencieusement des observations.
+- Trouver l'étape défaillante d'une chaîne en l'exécutant une étape à la fois.
+- Écrire une fonction simple.
+- Réparer un fichier désordonné dans un script, puis relancer toute l'analyse dans une session R neuve.
 
 :::
 
@@ -43,6 +46,8 @@ glimpse(wdi)
 Chaque ligne est un pays-année : `r n_distinct(wdi$iso3c)` pays, `r n_distinct(wdi$year)` années, `r nb(nrow(wdi), 0)` lignes.
 
 Le bloc de préparation applique déjà une correction : l'espérance de vie de la République centrafricaine (`CAF`) est mise à manquante (`NA`) pour toutes les années, car cette version de la série n'est pas fiable (la séance 4 le montre). Les résumés de `life_exp` ci-dessous utilisent donc `na.rm = TRUE`, qui ignore les valeurs manquantes ; nous l'expliquons dans la section sur les valeurs manquantes.
+
+**Rythme.** Le parcours principal dure environ 190 minutes, exercices compris. Les exercices 3.3 à 3.7 sont marqués **Facultatif : pour aller plus loin** et ajoutent environ 45 minutes : faites-les si le temps le permet, ou chez vous.
 
 ## Le pipe et les principaux verbes
 
@@ -191,6 +196,116 @@ wdi_2020 |>
 :::
 
 `count()` est un raccourci pour « regrouper et compter les lignes ». Nous y revenons plus bas.
+
+## Déboguer une chaîne, une étape à la fois {#sec-debugging}
+
+::: {.section-goal}
+[≈ 15 min]{.duration} Après cette section, vous saurez trouver l'étape défaillante d'une chaîne en l'exécutant morceau par morceau, et lire ce que dit un message d'erreur.
+:::
+
+Une chaîne échoue en bloc, mais elle casse à une étape précise. Celle-ci devrait lister les pays d'Afrique subsaharienne en 2020 avec leur espérance de vie et leur PIB par habitant. Elle contient trois erreurs :
+
+```{r}
+#| error: true
+wdi |>
+  filter(year = 2020, region == "Sub-Saharan africa") |>
+  select(country, life_exp, gdp_pc) |>
+  arrange(desc(life_exp))
+```
+
+### Lire le message d'erreur
+
+Lisez le message depuis le haut. La première ligne nomme le verbe qui a échoué (`filter()`). La ligne qui commence par `!` dit ce qui ne va pas. Les lignes qui commencent par `ℹ` suggèrent souvent la correction : ici, R devine même que nous voulions écrire `year == 2020`.
+
+R s'arrête à la **première** erreur. Corrigez-la et relancez :
+
+```{r}
+#| error: true
+wdi |>
+  filter(year == 2020, region == "Sub-Saharan africa") |>
+  select(country, life_exp, gdp_pc) |>
+  arrange(desc(life_exp))
+```
+
+C'est maintenant `select()` qui échoue : la colonne `gdp_pc` n'existe pas (*« Column `gdp_pc` doesn't exist »*). `names(wdi)` donne les noms exacts ; la colonne s'appelle `gdp_pc_ppp`.
+
+```{r}
+wdi |>
+  filter(year == 2020, region == "Sub-Saharan africa") |>
+  select(country, life_exp, gdp_pc_ppp) |>
+  arrange(desc(life_exp))
+```
+
+Plus d'erreur cette fois, et pourtant la table a **0 ligne**. C'est le type de bogue le plus dangereux, car R ne se plaint pas.
+
+### Exécuter la chaîne une étape à la fois
+
+Pour trouver un bogue silencieux, exécutez la chaîne jusqu'à un `|>` à la fois et regardez ce qui en sort. Dans RStudio, sélectionnez les lignes jusqu'à un `|>` (sans l'inclure) et appuyez sur `Ctrl + Enter` (`Cmd + Enter` sur Mac). Terminer un morceau par `nrow()` ou `glimpse()` montre combien de lignes survivent :
+
+```{r}
+wdi |> nrow()                                    # départ : tous les pays-années
+wdi |> filter(year == 2020) |> nrow()            # une année : une ligne par pays
+wdi |> filter(year == 2020, region == "Sub-Saharan africa") |> nrow()   # 0 : le problème est ici
+```
+
+Le compte tombe à zéro à la condition sur la région. Regardez les valeurs qui existent vraiment :
+
+```{r}
+wdi |> distinct(region)
+```
+
+Les données écrivent `"Sub-Saharan Africa"`, avec un A majuscule, et `==` compare le texte exactement. La chaîne réparée, vérifiée avec `glimpse()` :
+
+```{r}
+wdi |>
+  filter(year == 2020, region == "Sub-Saharan Africa") |>
+  select(country, life_exp, gdp_pc_ppp) |>
+  arrange(desc(life_exp)) |>
+  glimpse()
+```
+
+`r wdi |> filter(year == 2020, region == "Sub-Saharan Africa") |> nrow()` pays, comme attendu.
+
+::: {.callout-important}
+## Idée clé
+Une erreur est une amie : elle indique quelle étape a échoué, et souvent comment la corriger. Un **résultat vide ou trop petit** est silencieux. Après chaque `filter()` ou jointure, vérifiez `nrow()`, et copiez les libellés des catégories depuis `distinct()` au lieu de les taper de mémoire.
+:::
+
+::: {.callout-tip}
+## Exercice 3.1 : réparer une chaîne
+Cette chaîne devrait lister les pays à revenu faible en 2019, avec leur PIB par habitant (PPA) en milliers de dollars et leur espérance de vie, du plus riche au plus pauvre. Elle contient deux bogues. Exécutez-la, trouvez-les étape par étape, corrigez-les, et dites combien de pays contient la table.
+
+```{r}
+#| eval: false
+wdi |>
+  filter(year == 2019, income == "Low Income") |>
+  mutate(gdp_pc_k = gdp_pc_ppp / 1000) |>
+  select(country, gdp_pc_k, life_expectancy) |>
+  arrange(desc(gdp_pc_k))
+```
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+# Bogue 1 (erreur dans select) : la colonne s'appelle life_exp, pas life_expectancy
+names(wdi)
+
+# Bogue 2 (silencieux) : aucune ligne ne survit au filtre
+wdi |> filter(year == 2019, income == "Low Income") |> nrow()
+wdi |> distinct(income)   # le libellé est "Low income", avec un i minuscule
+
+low_2019 <- wdi |>
+  filter(year == 2019, income == "Low income") |>
+  mutate(gdp_pc_k = gdp_pc_ppp / 1000) |>
+  select(country, gdp_pc_k, life_exp) |>
+  arrange(desc(gdp_pc_k))
+
+nrow(low_2019)   # N
+low_2019
+```
+La table contient `r nrow(low_2019)` pays à revenu faible. Si vous corrigez seulement le nom de colonne, la chaîne tourne sans aucune erreur et renvoie une table vide : le second bogue ne se trouve qu'en vérifiant `nrow()` étape par étape.
+:::
 
 ## Résumer par groupe, et valeurs manquantes
 
@@ -698,12 +813,86 @@ gdp3 |>
 
 Ne négligez pas cet avertissement : il signifie presque toujours que la clé est incomplète (ici, `year` a été oubliée).
 
-## Exercices (≈ 45 min)
+## Écrire une fonction simple {#sec-functions}
 
-Les exercices suivants utilisent le panel `wdi`.
+::: {.section-goal}
+[≈ 15 min]{.duration} Après cette section, vous saurez écrire une petite fonction et l'utiliser dans `mutate()`.
+:::
+
+Vous avez utilisé de nombreuses fonctions écrites par d'autres : `mean()`, `filter()`, `read_csv()`. Quand vous répétez le même calcul, vous pouvez écrire la vôtre. Celle-ci calcule le PIB par habitant :
+
+```{r}
+gdp_per_capita <- function(gdp, population) {
+  gdp / population
+}
+```
+
+::: {.definition}
+**Fonction** : une recette qui porte un nom. Ses **arguments** sont les entrées (ici `gdp` et `population`). Le **corps**, entre `{ }`, est le calcul. La valeur de la dernière ligne est ce que la fonction **renvoie**.
+:::
+
+Exécuter ce bloc crée la fonction (elle apparaît dans le panneau Environment) mais ne calcule encore rien. Appelez-la d'abord sur des nombres dont vous connaissez le résultat :
+
+```{r}
+gdp_per_capita(gdp = 2e12, population = 50e6)   # 2 000 milliards / 50 millions = 40 000
+```
+
+Testez une nouvelle fonction sur un cas que vous pouvez vérifier à la main avant de lui confier de vraies données.
+
+Les arguments sont **locaux** : dans la fonction, `gdp` et `population` valent ce que vous lui avez transmis, et ils disparaissent quand elle se termine. Seule la valeur renvoyée en sort.
+
+Comme `/` fonctionne sur des colonnes entières, la fonction marche aussi dans `mutate()`. La table des trois pays `gdp3` (de la section sur les jointures) contient le PIB mais pas la population : nous l'ajoutons depuis `wdi`, avec les bonnes habitudes de jointure de la section précédente :
+
+```{r}
+gdp_pc_3 <- gdp3 |>
+  filter(year == 2020) |>
+  left_join(select(wdi, iso3c, year, population), by = c("iso3c", "year")) |>
+  mutate(gdp_pc = gdp_per_capita(gdp, population))
+
+nrow(gdp_pc_3)   # 3 lignes, comme dans la table de gauche
+gdp_pc_3
+```
+
+En 2020, le PIB par habitant était d'environ `r nb_dollar(gdp_pc_3$gdp_pc[gdp_pc_3$iso3c == "USA"])` aux États-Unis, `r nb_dollar(gdp_pc_3$gdp_pc[gdp_pc_3$iso3c == "CHN"])` en Chine et `r nb_dollar(gdp_pc_3$gdp_pc[gdp_pc_3$iso3c == "IND"])` en Inde. Ce sont des dollars courants aux taux de change du marché : ils ne sont pas comparables avec la colonne `gdp_pc_ppp` de `wdi`, qui corrige les écarts de niveau des prix (PPA).
+
+::: {.callout-warning}
+## Erreur fréquente
+`could not find function "gdp_per_capita"` (*« fonction introuvable »*) : le bloc qui définit la fonction n'a pas été exécuté dans cette session R, par exemple après un redémarrage. Exécutez-le d'abord ; dans un script, placez vos fonctions en haut, juste après les `library()`.
+:::
+
+Les séances suivantes définissent de petites fonctions utilitaires de la même façon : `unmatched()` à la séance 5 liste les pays sans correspondance dans la carte du monde, et la séance 6 construit sa propre fonction de thème pour les graphiques.
 
 ::: {.callout-tip}
-## Exercice 3.1 : filter, select, arrange
+## Exercice 3.2 : une fonction de taux de croissance
+Écrivez une fonction `growth_pct(before, after)` qui renvoie la variation en pourcentage de `before` à `after`. Testez-la : `growth_pct(100, 110)` doit donner 10. Utilisez-la ensuite pour calculer la croissance du PIB par habitant (PPA) entre 2000 et 2020 pour la Chine, l'Inde et les États-Unis. Indice : obtenez une colonne par année avec `pivot_wider()`.
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+```{r}
+growth_pct <- function(before, after) {
+  100 * (after - before) / before
+}
+
+growth_pct(100, 110)   # vérification à la main : 10
+
+growth_3 <- wdi |>
+  filter(iso3c %in% c("CHN", "IND", "USA"), year %in% c(2000, 2020)) |>
+  select(country, year, gdp_pc_ppp) |>
+  pivot_wider(names_from = year, values_from = gdp_pc_ppp, names_prefix = "y") |>
+  mutate(growth = growth_pct(y2000, y2020))
+
+growth_3
+```
+Entre 2000 et 2020, le PIB par habitant (PPA) a augmenté d'environ `r nb_pct(growth_3$growth[growth_3$country == "China"])` en Chine, `r nb_pct(growth_3$growth[growth_3$country == "India"])` en Inde et `r nb_pct(growth_3$growth[growth_3$country == "United States"])` aux États-Unis (N = 3 pays).
+:::
+
+## Exercices (≈ 25 min, plus ≈ 45 min en option)
+
+Les exercices suivants utilisent le panel `wdi`, sauf le dernier. **L'exercice 3.8, l'exercice de synthèse, est le cœur de cette partie.** Les exercices 3.3 à 3.7 sont un entraînement supplémentaire, un par thème du jour : faites ceux qui portent sur les thèmes où vous vous sentez le moins sûr, en séance si le temps le permet ou chez vous.
+
+::: {.callout-tip}
+## Exercice 3.3 : filter, select, arrange (Facultatif : pour aller plus loin)
 Prenez les pays d'Afrique subsaharienne en 2020. Gardez `country`, `income`, `life_exp` et `elec_access`, et triez-les par espérance de vie, de la plus faible à la plus élevée. Affichez les 10 plus faibles. Combien de pays le groupe compte-t-il ?
 :::
 
@@ -721,7 +910,7 @@ head(ssa_2020, 10)
 :::
 
 ::: {.callout-tip}
-## Exercice 3.2 : mutate
+## Exercice 3.4 : mutate (Facultatif : pour aller plus loin)
 Ajoutez la colonne `gdp_bn` (PIB en milliards de US$) aux données 2020 et listez les 5 pays au PIB le plus élevé, avec leur PIB en milliards. Lesquels *ne* sont *pas* à revenu élevé ?
 :::
 
@@ -739,7 +928,7 @@ La liste contient la Chine, que la Banque mondiale ne classe pas parmi les pays 
 :::
 
 ::: {.callout-tip}
-## Exercice 3.3 : group_by et summarise
+## Exercice 3.5 : group_by et summarise (Facultatif : pour aller plus loin)
 Pour chaque région **et** chacune des années 2000, 2010 et 2020, calculez le PIB par habitant (PPA) médian et le nombre de pays sur lequel il repose (hors valeurs manquantes). Présentez le résultat trié par année, puis par médiane.
 :::
 
@@ -759,7 +948,7 @@ Le N n'est pas constant selon les régions et les années : comparez les médian
 :::
 
 ::: {.callout-tip}
-## Exercice 3.4 : pivot
+## Exercice 3.6 : pivot (Facultatif : pour aller plus loin)
 Construisez une table avec une ligne par région et une colonne par année (2000, 2010, 2020) contenant l'espérance de vie médiane. Puis remettez-la au format long.
 :::
 
@@ -781,7 +970,7 @@ life_region |>
 :::
 
 ::: {.callout-tip}
-## Exercice 3.5 : jointure et vérification
+## Exercice 3.7 : jointure et vérification (Facultatif : pour aller plus loin)
 À partir de `wdi`, construisez la table `elec` avec `iso3c`, `year`, `elec_access` pour 2020. Joignez-la ensuite à une table `small` qui contient `iso3c = c("FRA", "GHA", "XXX")` (le dernier code n'existe pas). Utilisez `left_join()`, vérifiez le nombre de lignes, puis utilisez `anti_join()` pour trouver le code sans correspondance.
 :::
 
@@ -804,6 +993,111 @@ small |> anti_join(elec, by = "iso3c")   # le code sans correspondance
 ```
 :::
 
+::: {.callout-tip}
+## Exercice 3.8 : réparer cette analyse (exercice de synthèse)
+Un collègue vous envoie `data/raw/repair_me.csv` : de vraies valeurs de la Banque mondiale pour six pays (Afghanistan, Angola, Bangladesh, Bénin, Ghana, Kenya) en 2015 et 2019. La [séance 2](seance-2.qmd) a ouvert ce fichier et présenté les outils qui convertissent du texte en nombres ; ici, vous terminez le travail.
+
+**Consigne : calculez l'espérance de vie moyenne de chaque année sur les six pays, et indiquez le N sur lequel repose chaque moyenne.**
+
+Le fichier contient quatre problèmes placés exprès, plus un piège. Travaillez dans un nouveau script (`File > New File > R Script`), en trois étapes :
+
+1. **Inspecter** avant de calculer quoi que ce soit : `glimpse()`, `count(country, year)`, `distinct(country)`.
+2. **Réparer** chaque problème par une ligne de code. Ne modifiez jamais le CSV à la main : le fichier brut reste tel qu'il est arrivé, et le script garde la trace de chaque changement.
+3. **Relancer** tout le script dans une session R neuve : `Session > Restart R` (`Ctrl/Cmd + Shift + F10`), puis exécutez le script de haut en bas, comme à la [séance 1](seance-1.qmd). S'il tourne sans vous et affiche les mêmes nombres, votre analyse est reproductible.
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher l'indice
+Une liste à cocher, dans l'ordre :
+
+- [ ] Lisez toutes les colonnes comme du texte, pour que R ne devine rien : `read_csv(path, col_types = cols(.default = col_character()))`. Regardez le fichier tel qu'il est stocké avec `read_lines(path, n_max = 3)`.
+- [ ] `glimpse()` : quelles colonnes devraient être des nombres ? Comment le PIB est-il écrit ?
+- [ ] `distinct(country)` : combien d'orthographes par pays ? `str_trim()` supprime les espaces aux deux extrémités, `str_to_title()` corrige les majuscules.
+- [ ] `count(country, year) |> filter(n > 1)` : un pays-année apparaît-il deux fois ? `distinct()` supprime les lignes qui sont des copies exactes.
+- [ ] `sort(unique(life_exp))` : quelle valeur n'est pas un nombre ? `na_if()` la transforme en `NA`.
+- [ ] `iso_num` : un code, pas un nombre. Gardez ses zéros initiaux (`"004"`).
+- [ ] Vérifications finales : 12 lignes, aucun pays-année en double, N affiché à côté de chaque moyenne.
+:::
+
+::: {.callout-note collapse="true"}
+## Afficher la solution
+**Inspecter.** Lisez d'abord tout comme du texte, puis regardez :
+
+```{r}
+# 1. Lire : toutes les colonnes comme du texte, pour que R ne devine rien dans votre dos
+repair_raw <- read_csv(here("data", "raw", "repair_me.csv"),
+                       col_types = cols(.default = col_character()))
+
+# 2. Inspecter
+read_lines(here("data", "raw", "repair_me.csv"), n_max = 3)   # le fichier tel qu'il est stocké
+glimpse(repair_raw)
+repair_raw |> distinct(country)
+repair_raw |> count(country, year) |> filter(n > 1)
+sort(unique(repair_raw$life_exp))
+```
+
+**Diagnostiquer.** Les quatre problèmes et le piège :
+
+1. **Le PIB est stocké comme du texte**, avec un séparateur de milliers (`"2,967.7"`) : `as.numeric()` renverrait `NA` ; `parse_number()` sait le lire.
+2. **Le Kenya a des libellés incohérents**, `" kenya"` et `"KENYA "` (espaces et majuscules) : `distinct()` affiche sept « pays » au lieu de six.
+3. **Ghana 2019 apparaît deux fois** : il compterait deux fois dans la moyenne.
+4. **L'espérance de vie du Bénin en 2015 est écrite `"n/a"`** : toute la colonne est du texte, et `mean()` ne peut pas l'utiliser.
+5. Le piège : **`iso_num` est un code**. Lu comme un nombre, `"004"` devient `4`, ce que font Excel ou la fonction `read.csv()` de R de base. Gardez-le en texte.
+
+Les versions récentes de `read_csv()` devinent seules certaines colonnes correctement (elles lisent `"2,967.7"` comme un nombre). Ne comptez pas dessus : la devinette dépend de la version du package et du fichier. Lire en texte puis convertir vous-même donne toujours le même résultat.
+
+**Réparer**, une ligne par problème, puis vérifier :
+
+```{r}
+# 3. Réparer
+repaired <- repair_raw |>
+  mutate(
+    country    = str_to_title(str_trim(country)),     # " kenya", "KENYA " -> "Kenya"
+    year       = as.integer(year),
+    gdp_pc_ppp = parse_number(gdp_pc_ppp),            # "2,967.7" -> 2967.7
+    life_exp   = as.numeric(na_if(life_exp, "n/a"))   # "n/a" -> NA, puis un nombre
+  ) |>                                                # iso_num reste du texte : "004"
+  distinct()                                          # supprime la seconde ligne Ghana 2019
+
+# 4. Vérifier la réparation
+glimpse(repaired)
+nrow(repaired)                                      # 12 pays-années
+repaired |> count(country, year) |> filter(n > 1)   # vide : plus aucun doublon
+```
+
+**Répondre**, avec N :
+
+```{r}
+# 5. Espérance de vie moyenne par année, avec N
+life_by_year <- repaired |>
+  summarise(
+    n_countries = n(),
+    n_life      = sum(!is.na(life_exp)),
+    mean_life   = mean(life_exp, na.rm = TRUE),
+    .by = year
+  )
+
+life_by_year
+```
+
+Espérance de vie moyenne sur les six pays : `r nb(life_by_year$mean_life[life_by_year$year == 2015], 2)` ans en 2015 (N = `r life_by_year$n_life[life_by_year$year == 2015]` : le Bénin manque) et `r nb(life_by_year$mean_life[life_by_year$year == 2019], 2)` ans en 2019 (N = `r life_by_year$n_life[life_by_year$year == 2019]`).
+
+Les deux moyennes ne reposent pas sur les mêmes pays. Pour comparer les années, gardez les pays observés les deux années :
+
+```{r}
+# Les cinq mêmes pays les deux années : on retire le Bénin, manquant en 2015
+life_same <- repaired |>
+  filter(country != "Benin") |>
+  summarise(n_countries = n(), mean_life = mean(life_exp), .by = year)
+
+life_same
+```
+
+Sur les `r life_same$n_countries[1]` mêmes pays, la moyenne passe de `r nb(life_same$mean_life[life_same$year == 2015], 2)` à `r nb(life_same$mean_life[life_same$year == 2019], 2)` ans. Avec le Bénin inclus en 2019 seulement, la hausse paraît plus faible, car le Bénin a l'espérance de vie la plus basse du groupe.
+
+**Relancer.** Dernière étape : `Session > Restart R`, puis exécutez tout le script. Mêmes nombres ? Alors la réparation est terminée et documentée.
+:::
+
 ## À retenir
 
 - Le pipe `|>` se lit « et ensuite » : un verbe par ligne, de haut en bas.
@@ -812,5 +1106,8 @@ small |> anti_join(elec, by = "iso3c")   # le code sans correspondance
 - Les facteurs donnent aux catégories un ordre qui a du sens (`factor(levels = )`, `fct_relevel()`, `fct_reorder()`).
 - Données *tidy* : une variable par colonne, une observation par ligne, une valeur par cellule. `pivot_longer()` et `pivot_wider()` permettent de passer d'un format à l'autre.
 - Une jointure ne se plaint jamais des clés sans correspondance. Joignez sur des codes (`iso3c`), comptez les lignes avant et après, et lancez `anti_join()`.
+- Pour déboguer une chaîne, exécutez-la jusqu'à un `|>` à la fois et vérifiez `nrow()`. Les erreurs disent où ; les résultats vides, non.
+- Une fonction a des arguments (les entrées), un corps (le calcul) et renvoie sa dernière valeur. Testez-la sur un cas vérifiable à la main.
+- Réparez un fichier désordonné dans un script, jamais à la main : inspecter, réparer, vérifier, puis tout relancer dans une session R neuve.
 
 Suite : [Séance 4 : Statistiques descriptives et régression](seance-4.qmd).

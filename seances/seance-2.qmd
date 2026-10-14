@@ -9,6 +9,8 @@ Session objectives
 - Locate files with `here::here()` instead of `setwd()`.
 - Import CSV and Excel files, and inspect what you imported.
 - Handle a badly formatted file: look at the raw text first, then check `nrow()` and `problems()`.
+- Convert text to numbers (`parse_number()`), keep codes as text, tidy labels, and find the missing values a conversion created.
+- Optional: clean country labels and parse dates with `lubridate`, then find the dates that failed.
 - Export results to `output/` (CSV, Excel, `.rds`) without touching the raw data.
 - Get World Bank data with the `WDI` package, and understand why we cache it.
 :::
@@ -26,7 +28,7 @@ library(here)        # project-relative paths
 library(janitor)     # clean_names()
 library(readxl)      # read Excel files
 library(writexl)     # write Excel files
-library(lubridate)   # dates (teaser)
+library(lubridate)   # dates
 library(scales)      # label_dollar()
 library(WDI)         # World Bank API (used in a non-evaluated chunk)
 
@@ -35,6 +37,8 @@ source(here("R", "theme_cours.R"))
 
 **Script of this session:** [download seance-2.R](../scripts/seance-2.R){download="seance-2.R"}, all the code of this page in one file.
 :::
+
+**Pacing.** The core path takes about 190 minutes, exercises included. Parts marked **Optional: going further** (Section 6 on strings and dates, Section 9, and Exercises 2.4, 2.5 and 2.7) add about 45 minutes: do them if time allows, or at home.
 
 ## 1. Where are my files?
 
@@ -158,7 +162,7 @@ scim |> count(measure, unit_code, frequency)
 
 The three subjects are exports (`XTEXVA01`), imports (`XTIMVA01`) and net trade (`XTNTVA01`). The second count shows why we kept `unit_code` and `frequency`: `CXML` and `CXMLSA` are in US dollars, `NCML` and `NCMLSA` in national currency, `GPSA` and `GYSA` are percentage changes (from the previous period and from a year earlier), and each comes monthly (`M`) and quarterly (`Q`). Before computing anything on `value`, keep one measure and one frequency.
 
-**Teaser: dates.** `time` is text, so R cannot sort or plot it as a date. `lubridate::yq()` converts `"2022-Q2"` to the first day of that quarter (the [Dates and times](https://r4ds.hadley.nz/datetimes.html) chapter of *R for Data Science* goes further):
+**Teaser: dates.** `time` is text, so R cannot sort or plot it as a date. `lubridate::yq()` converts `"2022-Q2"` to the first day of that quarter (the [Dates and times](https://r4ds.hadley.nz/datetimes.html) chapter of *R for Data Science* goes further, and so does [Section 6](#sec-strings-dates)):
 
 ```{r}
 scim |>
@@ -313,7 +317,208 @@ Read the chart as a check, not only as a result. India's line is almost straight
 
 The cleaned file carries an `iso3c` code (country code). Notice that WID writes `"USA"` where the World Bank writes `"United States"`: country names differ between sources. We will see in session 3 why you must join on codes, never on names.
 
-## 5. Writing files
+## 5. Converting and cleaning values {#sec-convert}
+
+::: {.section-goal}
+[≈ 20 min]{.duration} After this section you can turn text into numbers, keep codes as text, tidy labels, and find the values a conversion lost.
+:::
+
+`glimpse()` tells you that a column has the wrong type. This section is about **fixing** it, and checking the fix. We use `repair_me.csv`: real World Bank values for six countries in 2015 and 2019, with problems planted on purpose. You will repair it completely in Session 3; here we practise one fix at a time.
+
+```{r}
+repair <- read_csv(here("data", "raw", "repair_me.csv"), show_col_types = FALSE)
+glimpse(repair)
+```
+
+Read the types. `gdp_pc_ppp` is `<dbl>`: `readr` understood that `"2,967.7"` is a number with a thousands separator. `iso_num` is `<chr>` and keeps `"004"`. But `life_exp` is `<chr>`: at least one value in it is not a number. We come back to it at the end.
+
+### Numbers stored as text
+
+Not every tool is as helpful as `readr`. Base R's `read.csv()`, which you will meet in many answers online, reads the same file differently:
+
+```{r}
+repair_base <- read.csv(here("data", "raw", "repair_me.csv"))
+str(repair_base)
+```
+
+`gdp_pc_ppp` is now text (`chr`). The reflex `as.numeric()` fails on every value, because of the comma:
+
+```{r}
+#| warning: true
+as.numeric(repair_base$gdp_pc_ppp)
+```
+
+Thirteen `NA` and one warning: `NAs introduced by coercion`. `readr::parse_number()` drops the thousands separator, and any text around the number:
+
+```{r}
+parse_number(repair_base$gdp_pc_ppp)
+```
+
+::: {.callout-warning}
+## Common mistake
+
+`parse_number()` keeps the first number it finds and drops everything else: `"12 km"` and `"12 miles"` both become `12`. Look at the text before you convert it. For French-style numbers (`"2.967,7"` or `"2 967,7"`), tell it which mark is which with `locale =`:
+
+```{r}
+parse_number("12 km")
+parse_number("2.967,7", locale = locale(decimal_mark = ",", grouping_mark = "."))
+```
+:::
+
+### Codes that must stay text
+
+`iso_num` is the ISO numeric country code: Afghanistan is `"004"`. A code is a label, not a quantity: you never add two codes, but you join tables on them. `read.csv()` turned it into a number, and the zeros are gone:
+
+```{r}
+repair_base$iso_num
+```
+
+`4` will never match `"004"` in another file. With `readr`, declare the type instead of trusting the guess:
+
+```{r}
+repair_codes <- read_csv(here("data", "raw", "repair_me.csv"),
+                         col_types = cols(iso_num = col_character()))
+repair_codes$iso_num
+```
+
+Here the guess was already right (the version of `readr` used for this page keeps values with leading zeros as text), but a guess depends on the version and on the first 1000 rows. `col_types =` writes the rule down: the same script gives the same result on every computer.
+
+### Spaces and case in labels
+
+`read_csv()` silently removes spaces at the ends of each value (its argument `trim_ws = TRUE`); `read.csv()` keeps them. `unique()` prints each value in quotes, so you can see them:
+
+```{r}
+unique(repair$country)        # read_csv(): spaces removed, case problem left
+unique(repair_base$country)   # read.csv(): both problems
+```
+
+For R, `" kenya"` and `"KENYA "` are two different countries, and neither is `"Kenya"`. `str_squish()` removes spaces at both ends (and doubled spaces inside); `str_to_title()` puts a capital at the start of each word:
+
+```{r}
+str_squish(c(" kenya", "KENYA ", "Burkina   Faso"))
+unique(str_to_title(str_squish(repair_base$country)))
+```
+
+Six names for six countries. (We only print the result: the table itself is repaired in Session 3.)
+
+::: {.callout-warning}
+## Common mistake
+
+Running `str_to_title()` on names that were already right. It does not know country names:
+
+```{r}
+str_to_title(c("Côte d'Ivoire", "United States of America"))
+```
+
+Check with `unique()` after every cleaning step, and fix the exceptions one by one ([Section 6](#sec-strings-dates) shows how). Better still, match countries on codes, not on names.
+:::
+
+### Missing values created by a conversion
+
+Back to `life_exp`. Count the missing values before and after converting:
+
+```{r}
+#| warning: true
+sum(is.na(repair$life_exp))   # before
+life_num <- as.numeric(repair$life_exp)
+sum(is.na(life_num))          # after
+```
+
+One `NA` appeared that was not in the file. To find it, keep the rows where the text was present but the number is missing:
+
+```{r}
+repair |>
+  mutate(life_num = as.numeric(life_exp)) |>
+  filter(!is.na(life_exp), is.na(life_num)) |>
+  select(country, year, life_exp, life_num)
+```
+
+Benin 2015 is written `"n/a"`. Now **decide**. If it were a typo (`"6l.2"`), you would look up the right value at the source. Here `"n/a"` is the provider's way to write "missing", so declare it at import with `na =`:
+
+```{r}
+repair_na <- read_csv(here("data", "raw", "repair_me.csv"),
+                      na = c("", "NA", "n/a"), show_col_types = FALSE)
+class(repair_na$life_exp)
+sum(is.na(repair_na$life_exp))
+```
+
+`life_exp` is now numeric, with one `NA` that we chose. `na =` replaces the default `c("", "NA")`, so keep those two in the list.
+
+::: {.callout-important}
+## Key idea
+
+A conversion can turn a value into `NA` with only a warning, or with none at all. Count `NA` before and after every conversion: each new `NA` must have an explanation.
+:::
+
+The file still has a problem we have not touched; Session 3's "Repair this analysis" exercise puts all the fixes together. Practise now with Exercise 2.6.
+
+## 6. Strings and dates: a small worked example (Optional: going further) {#sec-strings-dates}
+
+::: {.section-goal}
+[≈ 20 min]{.duration} After this section you can harmonise country labels, turn date text into real dates, and find the dates that failed.
+:::
+
+This section is not needed for the next sessions: do it if you finish early, or at home. Annual WDI data have no dates, but survey data do. Here is a small table of household interviews, typed by different enumerators:
+
+```{r}
+interviews <- tibble(
+  country   = c("Senegal", "senegal ", "Côte d'Ivoire", "Cote d'Ivoire", "IVORY COAST", " Ghana"),
+  interview = c("15/03/2019", "02/11/2019", "30/06/2020", "31/02/2020", "14/07/2020", "03/12/2019")
+)
+interviews
+```
+
+**Labels.** First the two steps of [Section 5](#sec-convert), spaces then case. Then one `case_when()` (taught in Session 3: read it as "if ... then ...") gathers the variant names, including the one `str_to_title()` damaged:
+
+```{r}
+interviews <- interviews |>
+  mutate(
+    country = str_to_title(str_squish(country)),
+    country = case_when(
+      country %in% c("Côte D'ivoire", "Cote D'ivoire", "Ivory Coast") ~ "Côte d'Ivoire",
+      .default = country   # every other label stays as it is
+    )
+  )
+count(interviews, country)
+```
+
+Three countries, as expected.
+
+**Dates.** In Section 2, `yq()` turned `"2022-Q2"` into a date. Every `lubridate` parser is named after the order of the parts in the text: `y` year, `m` month, `d` day, `q` quarter.
+
+```{r}
+ymd("2019-03-15")
+dmy("15/03/2019")
+my("03/2019")
+yq("2019-Q1")
+```
+
+All four return a `Date`. Our interviews are written day/month/year, so we use `dmy()`, then extract the year with `year()`:
+
+```{r}
+#| warning: true
+interviews <- interviews |>
+  mutate(date = dmy(interview), year = year(date))
+interviews
+```
+
+The warning `1 failed to parse` means that one text could not be read as a date. As in Section 5, find it with `is.na()`:
+
+```{r}
+interviews |> filter(is.na(date))
+```
+
+The 31st of February does not exist: an entry error. Do not guess the right day; ask the source (questionnaire, survey team), or keep the `NA` and say so.
+
+::: {.callout-warning}
+## Common mistake
+
+`"02/11/2019"` is 2 November with `dmy()` but 11 February with `mdy()`, and both run **without any warning**. `lubridate` cannot know which convention the source used: read its documentation (US sources often put the month first), and check that `range(interviews$date, na.rm = TRUE)` falls inside the fieldwork period.
+:::
+
+Practise with Exercise 2.7 (optional).
+
+## 7. Writing files
 
 ::: {.section-goal}
 [≈ 25 min]{.duration} After this section you can save a result in the format that suits its reader.
@@ -366,7 +571,7 @@ When to use what?
 | `.xlsx` | the recipient works in Excel (several tables in one file) |
 | `.rds` | you want to reload the object in R exactly as it was (intermediate results) |
 
-## 6. Data from packages: the World Bank
+## 8. Data from packages: the World Bank
 
 ::: {.section-goal}
 [≈ 25 min]{.duration} After this section you can fetch World Bank data with `WDI()` and explain why we read a cached copy.
@@ -449,7 +654,7 @@ Averaging or comparing an indicator without checking its coverage. If the Gini i
 Missing data in WDI is not random: low-income and fragile countries are the ones with the fewest observations. Checking coverage first tells you whom your results are about.
 :::
 
-## 7. A first look at the data
+## 9. A first look at the data (Optional: going further)
 
 ::: {.section-goal}
 [≈ 5 min]{.duration} After this section you have seen what a clean import lets you do next.
@@ -474,7 +679,7 @@ ggplot(wdi3, aes(x = year, y = gdp, colour = country)) +
   )
 ```
 
-## 8. Exercises (≈ 30 min)
+## 10. Exercises (≈ 25 min, plus ≈ 20 min optional)
 
 ::: {.callout-tip}
 ## Exercise 2.1
@@ -527,7 +732,7 @@ file.exists(here("output", c("ex2.csv", "ex2_sheets.xlsx")))
 :::
 
 ::: {.callout-tip}
-## Exercise 2.4
+## Exercise 2.4 (Optional: going further)
 
 Write the `WDI()` call that would fetch total population (`SP.POP.TOTL`) for Japan, Germany and Brazil from 2000 to 2020. (You cannot run it in class without Internet: write it only.)
 :::
@@ -549,7 +754,7 @@ write_csv(pop_api, here("output", "pop_3countries.csv"))
 :::
 
 ::: {.callout-tip}
-## Exercise 2.5
+## Exercise 2.5 (Optional: going further)
 
 Using the cached panel `wdi_panel`, compute the average population (in millions) of Japan, Germany and Brazil over 2000–2020.
 :::
@@ -564,6 +769,68 @@ wdi_panel |>
 ```
 :::
 
+::: {.callout-tip}
+## Exercise 2.6: from text to numbers
+
+Someone typed these amounts by hand:
+
+```{r}
+x <- c(" 12", "1,200", "n/a", "7 ")
+```
+
+1. Run `as.numeric(x)`. How many `NA` do you get? Which one is a real missing value, and which one is a conversion failure?
+2. Convert `x` with `parse_number()`. Which value is now right?
+3. Tell `parse_number()` that `"n/a"` means missing (argument `na =`). Check with `sum(is.na())` that exactly one `NA` remains, and that the warning has gone.
+:::
+
+::: {.callout-note collapse="true"}
+## Show solution
+```{r}
+#| warning: true
+as.numeric(x)                             # spaces are fine; the comma and "n/a" are not
+sum(is.na(as.numeric(x)))
+parse_number(x)                           # 1200 is right; "n/a" still gives a warning
+parse_number(x, na = "n/a")               # "n/a" declared missing: no warning
+sum(is.na(parse_number(x, na = "n/a")))
+```
+`as.numeric()` gives two `NA`: `"n/a"` is a real missing value, `"1,200"` is a conversion failure. `parse_number()` reads `"1,200"` as 1200. Once `"n/a"` is declared with `na =`, the only `NA` left is the one you expected.
+:::
+
+::: {.callout-tip}
+## Exercise 2.7 (Optional: going further)
+
+Field visits, one row per visit, with the month typed as month/year:
+
+```{r}
+visits <- tibble(
+  country = c("Gambia, The", "the  gambia", "THE GAMBIA ", "Senegal", "senegal"),
+  month   = c("03/2018", "11/2018", "13/2019", "06/2019", "09/2019")
+)
+```
+
+1. Clean `country` so that there are exactly two names, `"The Gambia"` and `"Senegal"`.
+2. Turn `month` into a date with the right `lubridate` function. Which row fails, and why?
+3. Add the year and count the visits by country and year.
+:::
+
+::: {.callout-note collapse="true"}
+## Show solution
+```{r}
+#| warning: true
+visits <- visits |>
+  mutate(
+    country = str_to_title(str_squish(country)),
+    country = case_when(country == "Gambia, The" ~ "The Gambia",   # World Bank spelling
+                        .default = country),
+    date = my(month),
+    year = year(date)
+  )
+visits |> filter(is.na(date))   # month 13 does not exist
+visits |> count(country, year)
+```
+`my()` reads month then year. `"13/2019"` fails to parse: there is no 13th month. Its year is `NA` too, so the count shows one visit to The Gambia with an unknown year: report it, do not drop it silently.
+:::
+
 ## Key takeaways
 
 - Never use `setwd()` or absolute paths: `here::here()` works on every machine.
@@ -571,6 +838,9 @@ wdi_panel |>
 - Look at the raw text of a file before reading it, and check `nrow()`, `glimpse()` and `problems()` after.
 - `read_csv()` for commas, `read_delim()` for other separators (`skip =`, `col_names =`); `read_excel()` with `sheet =` and `range =`.
 - `clean_names()` makes column names usable; duplicated columns and text dates are common in real data.
+- Numbers stored as text: `parse_number()`, not `as.numeric()`. Codes stay text: `col_types = cols(code = col_character())`. Labels: `str_squish()`, then check with `unique()`.
+- Count `NA` before and after every conversion; declare the provider's missing codes at import with `na = c("", "NA", "n/a")`.
+- Dates: the `lubridate` function follows the order in the text (`dmy()`, `ymd()`, `my()`, `yq()`); a `failed to parse` warning means `NA` to find with `is.na()`.
 - Write with `write_csv()`, `write_xlsx()` (a named list gives several sheets) and `saveRDS()` to keep R objects exactly.
 - Cache API data (`WDI`) in a file: reproducible, offline, fast.
 
